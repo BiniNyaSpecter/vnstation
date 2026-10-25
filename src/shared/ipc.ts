@@ -1,0 +1,53 @@
+/**
+ * Explicit allowlist of IPC channels. The preload script exposes typed functions
+ * built on exactly these channels, and the main process registers a handler for
+ * each one. Nothing else is reachable from the renderer.
+ */
+export const IPC = {
+  app: {
+    getInfo: 'app:get-info'
+  },
+  dialogs: {
+    pickExecutable: 'dialogs:pick-executable',
+    pickFolder: 'dialogs:pick-folder',
+    scanFolder: 'dialogs:scan-folder'
+  },
+  library: {
+    load: 'library:load',
+    addGame: 'library:add-game',
+    updateGame: 'library:update-game',
+    removeGame: 'library:remove-game',
+    createCollection: 'library:create-collection',
+    updateCollection: 'library:update-collection',
+    deleteCollection: 'library:delete-collection',
+    setGameCollections: 'library:set-game-collections',
+    verifyGame: 'library:verify-game',
+    addSampleGames: 'library:add-sample-games',
+    removeSampleGames: 'library:remove-sample-games'
+  },
+  metadata: {
+    search: 'metadata:search',
+    apply: 'metadata:apply',
+    refresh: 'metadata:refresh',
+    unlink: 'metadata:unlink',
+    chooseArtwork: 'metadata:choose-artwork',
+    resetArtwork: 'metadata:reset-artwork',
+    cacheStats: 'metadata:cache-stats',
+    clearCache: 'metadata:clear-cache'
+  },
+  settings: {
+    load: 'settings:load',
+    save: 'settings:save'
+  },
+  launcher: {
+    launch: 'launcher:launch',
+    running: 'launcher:running',
+    history: 'launcher:history',
+    openFolder: 'launcher:open-folder',
+    /** Main to renderer only: start, tracking and stop events. */
+    events: 'launcher:event'
+  }
+} as const
+
+/** Every handler replies with this envelope so the UI gets readable messages, not stack traces. */
+export type IpcResult<T> = { ok: true; value: T } | { ok: false; message: string }

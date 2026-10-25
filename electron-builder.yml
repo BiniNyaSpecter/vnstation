@@ -1,0 +1,17 @@
+appId: app.vnstation.desktop
+productName: VNStation
+directories:
+  output: release
+files:
+  - out/**
+  - package.json
+win:
+  signAndEditExecutable: false
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-Setup-${version}.${ext}

@@ -1,0 +1,184 @@
+/*
+ * Design tokens.
+ *
+ * Colors live under [data-theme] so another theme is just another block that
+ * redefines them. The accent is set at runtime from Settings (--accent).
+ *
+ * Palette:  night ink (backgrounds), dusk (surfaces), mist (text), and one
+ * restrained accent. Artwork, not chrome, carries the color.
+ */
+:root[data-theme='midnight'] {
+  color-scheme: dark;
+
+  --ink-950: #080a16;
+  --ink-900: #0c0e1c;
+  --ink-800: #141733;
+  --ink-700: #1d2142;
+  --ink-600: #2a2f58;
+
+  --mist-100: #f1eff8;
+  --mist-300: #cfcce2;
+  --mist-400: #aaa7c6;
+  --mist-600: #8684aa;
+
+  --accent: #9db4ff;
+  --accent-ink: #0b1230;
+  --danger: #ff8c96;
+
+  --bg-rgb: 12, 14, 28;
+  --bg: rgb(var(--bg-rgb));
+  --text: var(--mist-100);
+  --text-dim: var(--mist-400);
+  --text-faint: var(--mist-600);
+
+  --glass: rgba(24, 28, 58, 0.62);
+  --glass-strong: rgba(28, 32, 66, 0.9);
+  --line: rgba(214, 210, 255, 0.12);
+  --line-strong: rgba(214, 210, 255, 0.26);
+  --hover: rgba(255, 255, 255, 0.07);
+}
+
+:root[data-theme='obsidian'] {
+  color-scheme: dark;
+
+  --ink-950: #030408;
+  --ink-900: #06070c;
+  --ink-800: #0e101a;
+  --ink-700: #161928;
+  --ink-600: #22263c;
+
+  --mist-100: #f4f3fa;
+  --mist-300: #d4d2e4;
+  --mist-400: #9f9db8;
+  --mist-600: #757392;
+
+  --accent: #9db4ff;
+  --accent-ink: #080d24;
+  --danger: #ff8c96;
+
+  --bg-rgb: 6, 7, 12;
+  --bg: rgb(var(--bg-rgb));
+  --text: var(--mist-100);
+  --text-dim: var(--mist-400);
+  --text-faint: var(--mist-600);
+
+  --glass: rgba(16, 18, 30, 0.68);
+  --glass-strong: rgba(18, 20, 34, 0.92);
+  --line: rgba(220, 220, 255, 0.11);
+  --line-strong: rgba(220, 220, 255, 0.24);
+  --hover: rgba(255, 255, 255, 0.07);
+}
+
+:root[data-theme='twilight'] {
+  color-scheme: dark;
+
+  --ink-950: #110c18;
+  --ink-900: #171122;
+  --ink-800: #221933;
+  --ink-700: #2e2244;
+  --ink-600: #3f305b;
+
+  --mist-100: #f6eff8;
+  --mist-300: #ddd0e6;
+  --mist-400: #b6a6c4;
+  --mist-600: #8e7d9e;
+
+  --accent: #f2a0bd;
+  --accent-ink: #240c18;
+  --danger: #ff8c96;
+
+  --bg-rgb: 23, 17, 34;
+  --bg: rgb(var(--bg-rgb));
+  --text: var(--mist-100);
+  --text-dim: var(--mist-400);
+  --text-faint: var(--mist-600);
+
+  --glass: rgba(38, 27, 56, 0.64);
+  --glass-strong: rgba(44, 32, 64, 0.92);
+  --line: rgba(242, 210, 255, 0.13);
+  --line-strong: rgba(242, 210, 255, 0.27);
+  --hover: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme='daylight'] {
+  color-scheme: light;
+
+  --ink-950: #e5e1d8;
+  --ink-900: #f4f1ea;
+  --ink-800: #ffffff;
+  --ink-700: #ebe7de;
+  --ink-600: #d5cfc3;
+
+  --mist-100: #1b1d2e;
+  --mist-300: #33364d;
+  --mist-400: #565a75;
+  --mist-600: #787c96;
+
+  --accent: #4263eb;
+  --accent-ink: #ffffff;
+  --danger: #d6334c;
+
+  --bg-rgb: 244, 241, 234;
+  --bg: rgb(var(--bg-rgb));
+  --text: var(--mist-100);
+  --text-dim: var(--mist-400);
+  --text-faint: var(--mist-600);
+
+  --glass: rgba(255, 255, 255, 0.75);
+  --glass-strong: rgba(255, 255, 255, 0.94);
+  --line: rgba(27, 29, 46, 0.12);
+  --line-strong: rgba(27, 29, 46, 0.24);
+  --hover: rgba(27, 29, 46, 0.06);
+}
+
+:root {
+  /* One display face for titles (literary serif), one UI face. Bundled fonts can replace these stacks later. */
+  --font-ui: 'Segoe UI Variable Text', 'Segoe UI', 'Yu Gothic UI', 'Meiryo UI', system-ui, sans-serif;
+  --font-display: 'Segoe UI Variable Display', 'Segoe UI Light', 'Segoe UI', 'Yu Gothic UI Light', 'Yu Gothic UI', system-ui, sans-serif;
+  --title-weight: 300;
+  --title-tracking: 0.005em;
+  --hint-h: 44px;
+
+  --text-xs: 0.78rem;
+  --text-sm: 0.875rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2.25rem;
+  --text-hero: clamp(2.25rem, 3.7vw, 3.6rem);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.75rem;
+  --space-7: 2.25rem;
+  --space-8: 3rem;
+  --space-9: 4rem;
+  --space-10: 6rem;
+
+  /* Different radii for different roles: sharp covers, soft panels, pill controls. */
+  --radius-cover: 5px;
+  --radius-panel: 18px;
+  --radius-pill: 999px;
+
+  --rail-w: 232px;
+  --rail-w-collapsed: 76px;
+  --topbar-h: 76px;
+  --gutter: clamp(24px, 3.6vw, 56px);
+
+  --tile-w: clamp(100px, 15.5vh, 156px);
+  --tile-w-selected: calc(var(--tile-w) * 1.26);
+  --grid-min: 150px;
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --backdrop-strength: 0.9;
+}
+
+/* Title style (Settings): "console" is the default above; "literary" swaps in a book-like serif. */
+:root[data-title-font='literary'] {
+  --font-display: 'Palatino Linotype', 'Book Antiqua', Palatino, 'Yu Mincho', 'Hiragino Mincho ProN', 'Noto Serif JP', Georgia, serif;
+  --title-weight: 700;
+  --title-tracking: -0.012em;
+}

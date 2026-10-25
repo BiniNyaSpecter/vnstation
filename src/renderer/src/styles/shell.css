@@ -1,0 +1,445 @@
+.shell {
+  position: relative;
+  display: grid;
+  /* Deep midnight ink behind everything; the waves and hero artwork sit on top of it. */
+  background:
+    radial-gradient(120% 90% at 12% -15%, rgba(18, 26, 58, 0.32) 0%, transparent 58%),
+    radial-gradient(90% 70% at 100% 115%, rgba(14, 32, 68, 0.24) 0%, transparent 62%),
+    var(--bg);
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
+  height: 100%;
+  transition: grid-template-columns 220ms var(--ease);
+}
+
+.shell[data-nav='rail'][data-rail='collapsed'] {
+  grid-template-columns: var(--rail-w-collapsed) minmax(0, 1fr);
+}
+
+/* Top-bar layout has no rail, whatever the rail was last set to. */
+.shell[data-nav='top'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.shell__main {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.shell__view {
+  height: 100%;
+}
+
+/* Every screen eases in gently without blanking the frame. */
+.shell__view > * {
+  animation: view-in 180ms var(--ease) both;
+}
+
+@keyframes view-in {
+  from {
+    opacity: 0.38;
+    transform: translateY(6px);
+  }
+}
+
+/* ---------- Navigation rail ---------- */
+.rail {
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5) var(--space-3);
+  overflow: hidden;
+  border-right: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(var(--bg-rgb), 0.95), rgba(var(--bg-rgb), 0.98));
+}
+
+.rail__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-6);
+}
+
+.rail__mark {
+  flex: none;
+  color: var(--accent);
+}
+
+.rail__name {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--title-weight);
+  white-space: nowrap;
+}
+
+.rail__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  list-style: none;
+}
+
+.rail__list--foot {
+  margin-top: auto;
+}
+
+.rail__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  height: 48px;
+  padding: 0 var(--space-3);
+  border-radius: 12px;
+  color: var(--text-dim);
+  text-align: left;
+  white-space: nowrap;
+  transition: background 140ms var(--ease), color 140ms var(--ease);
+}
+
+.rail__item .icon {
+  flex: none;
+}
+
+.rail__item:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.rail__item.is-active {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text);
+}
+
+.rail__item:focus-visible,
+:root[data-nav-focus] .rail__item:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--accent) 18%, rgba(255, 255, 255, 0.08));
+  color: var(--text);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+/* The accent bar marks where you are. */
+.rail__item.is-active::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: -12px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.rail[data-collapsed='true'] .rail__label,
+.rail[data-collapsed='true'] .rail__name {
+  display: none;
+}
+
+.rail[data-collapsed='true'] .rail__brand,
+.rail[data-collapsed='true'] .rail__item {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+/* ---------- Top bar (floats over artwork) ---------- */
+.topbar {
+  position: absolute;
+  z-index: 20;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  height: var(--topbar-h);
+  padding: 0 var(--gutter);
+  pointer-events: none;
+}
+
+.topbar > * {
+  pointer-events: auto;
+}
+
+/* Soft fade so scrolled content never collides with the controls. */
+.topbar::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 -20px;
+  z-index: -1;
+  background: linear-gradient(180deg, rgba(var(--bg-rgb), 0.97) 55%, rgba(var(--bg-rgb), 0));
+  pointer-events: none;
+}
+
+.topbar__mark {
+  flex: none;
+  color: var(--accent);
+}
+
+.topbar__cluster {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: auto;
+}
+
+.topbar .icon-btn--plain {
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.topbar .icon-btn--plain:hover,
+.topbar .icon-btn--plain.is-active {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* ---------- Category bar ---------- */
+.topnav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  gap: var(--space-6);
+  margin-left: var(--space-3);
+}
+
+.topnav__item {
+  padding: 6px 12px;
+  margin-inline: -10px;
+  border-radius: var(--radius-pill);
+  color: var(--text-dim);
+  font-size: 1.0625rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: color 200ms var(--ease), background 160ms var(--ease), box-shadow 160ms var(--ease);
+}
+
+.topnav__item:hover,
+.topnav__item.is-active {
+  color: var(--text);
+}
+
+.topnav__item:focus-visible,
+:root[data-nav-focus] .topnav__item:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--text);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+/* One accent line slides to whichever category is active. */
+.topnav__bar {
+  position: absolute;
+  bottom: 14px;
+  left: 0;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 70%, transparent);
+  transition: transform 360ms var(--ease), width 360ms var(--ease), opacity 200ms;
+  pointer-events: none;
+}
+
+.preview-pill {
+  padding: 5px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: rgba(var(--bg-rgb), 0.5);
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 220px;
+  height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: rgba(var(--bg-rgb), 0.55);
+  backdrop-filter: blur(12px);
+  color: var(--text-dim);
+  transition: width 200ms var(--ease), border-color 140ms var(--ease);
+}
+
+.search:focus-within {
+  width: 300px;
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.search input::placeholder {
+  color: var(--text-faint);
+}
+
+.clock {
+  min-width: 4.5rem;
+  color: var(--text-dim);
+  font-size: var(--text-lg);
+  font-weight: 300;
+  text-align: right;
+}
+
+@media (max-width: 1320px) {
+  .preview-pill {
+    display: none;
+  }
+}
+
+@media (max-width: 1180px) {
+  .topbar .btn span {
+    display: none;
+  }
+  .topbar .btn {
+    width: 40px;
+    padding: 0;
+  }
+  .search {
+    width: 150px;
+  }
+  .topnav {
+    gap: var(--space-4);
+  }
+  .topnav__item {
+    font-size: var(--text-md);
+  }
+}
+
+/* ---------- Ambient wave background ---------- */
+.waves {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.waves__glow {
+  position: absolute;
+  width: 60vw;
+  height: 60vw;
+  border-radius: 50%;
+  /* A gradient instead of a blur filter: same soft glow, a fraction of the GPU cost. */
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 60%, transparent), transparent);
+  opacity: 0.32;
+  will-change: transform;
+  animation: glow-drift 30s ease-in-out infinite alternate;
+}
+
+.waves__glow--a {
+  top: -28vw;
+  left: -12vw;
+}
+
+.waves__glow--b {
+  right: -18vw;
+  bottom: -34vw;
+  opacity: 0.2;
+  animation-duration: 38s;
+  animation-direction: alternate-reverse;
+}
+
+@keyframes glow-drift {
+  to {
+    transform: translate(9vw, 7vh) scale(1.15);
+  }
+}
+
+.waves__layer {
+  position: absolute;
+  left: 0;
+  width: 200%;
+  will-change: transform;
+  animation: wave-drift linear infinite;
+}
+
+.waves__layer--a {
+  bottom: -6%;
+  height: 52%;
+  animation-duration: 64s;
+}
+
+.waves__layer--b {
+  bottom: -10%;
+  height: 40%;
+  animation-duration: 46s;
+  animation-direction: reverse;
+}
+
+.waves__layer--c {
+  bottom: -14%;
+  height: 30%;
+  animation-duration: 34s;
+}
+
+@keyframes wave-drift {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.wave {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+}
+
+.wave--0 {
+  opacity: 0.2;
+}
+
+.wave--1 {
+  opacity: 0.13;
+}
+
+.wave--2 {
+  opacity: 0.08;
+}
+
+/* ---------- Control hints ---------- */
+.hints {
+  position: absolute;
+  z-index: 15;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-5);
+  height: var(--hint-h);
+  padding: 0 var(--gutter);
+  background: linear-gradient(0deg, rgba(var(--bg-rgb), 0.75), rgba(var(--bg-rgb), 0));
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  pointer-events: none;
+}
+
+.hints kbd {
+  margin-right: 7px;
+  padding: 1px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font: inherit;
+}

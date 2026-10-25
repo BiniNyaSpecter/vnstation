@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build artifacts and caches
+out/
+dist/
+release/
+*.log
+.DS_Store
+Thumbs.db
+
+# Environment variables and secrets
+.env
+.env.*
+*.env
+*.local
+
+# Editor and IDE configurations
+.vscode/
+.idea/
+
+# SQLite databases and backups
+*.db
+*.db-journal
+*.db.backup*
