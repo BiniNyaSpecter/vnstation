@@ -83,8 +83,14 @@ textarea {
 }
 
 * {
-  scrollbar-width: thin;
-  scrollbar-color: var(--ink-600) transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .sr-only {

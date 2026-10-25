@@ -169,9 +169,14 @@
 .topbar::before {
   content: '';
   position: absolute;
-  inset: 0 0 -20px;
+  inset: 0 0 -28px;
   z-index: -1;
-  background: linear-gradient(180deg, rgba(var(--bg-rgb), 0.97) 55%, rgba(var(--bg-rgb), 0));
+  background: linear-gradient(
+    180deg,
+    rgba(var(--bg-rgb), 0.88) 0%,
+    rgba(var(--bg-rgb), 0.48) 54%,
+    rgba(var(--bg-rgb), 0) 100%
+  );
   pointer-events: none;
 }
 
@@ -429,7 +434,12 @@
   gap: var(--space-5);
   height: var(--hint-h);
   padding: 0 var(--gutter);
-  background: linear-gradient(0deg, rgba(var(--bg-rgb), 0.75), rgba(var(--bg-rgb), 0));
+  background: linear-gradient(
+    0deg,
+    rgba(var(--bg-rgb), 0.84) 0%,
+    rgba(var(--bg-rgb), 0.42) 55%,
+    rgba(var(--bg-rgb), 0) 100%
+  );
   color: var(--text-faint);
   font-size: var(--text-xs);
   pointer-events: none;

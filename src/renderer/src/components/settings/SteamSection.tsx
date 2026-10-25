@@ -179,21 +179,21 @@ export function SteamSection() {
             </div>
             <div className="setting__description">
               {connected ? (
-                <>
+                <div className="steam-status-meta">
                   {status?.personaName && (
-                    <span>
-                      Account: <strong>{status.personaName}</strong> ({status.steamId}) ·{' '}
-                    </span>
+                    <div>
+                      Account: <strong>{status.personaName}</strong> ({status.steamId})
+                    </div>
                   )}
                   {status?.localSteamPath && (
-                    <span>
-                      Local folder: <span className="path">{status.localSteamPath}</span> ·{' '}
-                    </span>
+                    <div>
+                      Local folder: <span className="path">{status.localSteamPath}</span>
+                    </div>
                   )}
-                  <span>
+                  <div>
                     Last synced: {status?.lastSyncedAt ? formatRelativeDate(status.lastSyncedAt) : 'Not synced yet'}
-                  </span>
-                </>
+                  </div>
+                </div>
               ) : (
                 'Import only Visual Novels from your Steam library using the official Steam Web API or by scanning your local Steam installation.'
               )}
@@ -203,6 +203,7 @@ export function SteamSection() {
             {connected && (
               <Button
                 variant="primary"
+                size="md"
                 disabled={busy !== null}
                 onClick={() => void handleSync()}
               >
@@ -210,6 +211,7 @@ export function SteamSection() {
               </Button>
             )}
             <Button
+              size="md"
               disabled={busy !== null}
               onClick={() => setShowConfigForm((v) => !v)}
             >
@@ -217,6 +219,7 @@ export function SteamSection() {
             </Button>
             {connected && (
               <Button
+                size="md"
                 disabled={busy !== null}
                 onClick={() => void handleDisconnect()}
               >

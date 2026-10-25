@@ -13,12 +13,17 @@
   justify-content: flex-end;
   min-height: 100%;
   padding-top: var(--topbar-h);
-  padding-bottom: calc(var(--hint-h) - 12px);
+  padding-bottom: var(--hint-h);
 }
 
 .home__more {
-  padding-bottom: var(--space-9);
-  background: linear-gradient(180deg, rgba(var(--bg-rgb), 0), rgba(var(--bg-rgb), 0.94) 180px);
+  padding-bottom: calc(var(--hint-h) + var(--space-8));
+  background: linear-gradient(
+    180deg,
+    rgba(var(--bg-rgb), 0) 0%,
+    rgba(var(--bg-rgb), 0.55) 140px,
+    rgba(var(--bg-rgb), 0.88) 320px
+  );
 }
 
 /* ---------- Library, collections, settings ---------- */
@@ -196,8 +201,13 @@
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
   gap: var(--space-8);
-  padding: var(--space-8) var(--gutter) var(--space-10);
-  background: linear-gradient(180deg, rgba(var(--bg-rgb), 0), rgba(var(--bg-rgb), 0.95) 160px);
+  padding: var(--space-6) var(--gutter) calc(var(--hint-h) + var(--space-8));
+  background: linear-gradient(
+    180deg,
+    rgba(var(--bg-rgb), 0) 0%,
+    rgba(var(--bg-rgb), 0.68) 140px,
+    rgba(var(--bg-rgb), 0.9) 320px
+  );
 }
 
 .details__synopsis {
@@ -263,9 +273,10 @@
 
 .setting {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-6);
+  gap: var(--space-4) var(--space-6);
   padding: var(--space-4) var(--space-5);
   border-top: 1px solid var(--line);
 }
@@ -279,21 +290,31 @@
   background: color-mix(in srgb, var(--accent) 10%, rgba(255, 255, 255, 0.03));
 }
 
+.setting__text {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
 .setting__label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
   font-weight: 600;
 }
 
 .setting__description {
-  margin-top: 2px;
-  max-width: 46ch;
+  margin-top: 4px;
+  max-width: 52ch;
   color: var(--text-dim);
   font-size: var(--text-sm);
+  overflow-wrap: anywhere;
 }
 
 .setting__control {
   display: flex;
-  flex: none;
-  max-width: 45%;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
   justify-content: flex-end;
   color: var(--text-dim);
   font-size: var(--text-sm);
@@ -329,8 +350,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-4) var(--gutter) 0;
-  background: linear-gradient(180deg, rgba(var(--bg-rgb), 0.2), rgba(var(--bg-rgb), 0.88));
+  padding: var(--space-2) var(--gutter) 0;
+  background: transparent;
 }
 
 .details__tab {
@@ -338,7 +359,8 @@
   padding: var(--space-2) var(--space-5);
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--bg-rgb), 0.55);
+  backdrop-filter: blur(10px);
   color: var(--text-dim);
   font-size: var(--text-sm);
   font-weight: 600;
@@ -352,18 +374,28 @@
 
 .details__tab.is-active {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
-  background: color-mix(in srgb, var(--accent) 18%, rgba(255, 255, 255, 0.04));
+  background: color-mix(in srgb, var(--accent) 22%, rgba(var(--bg-rgb), 0.65));
   color: var(--text);
 }
 
 .chars-empty {
-  padding: var(--space-8) var(--gutter) var(--space-10);
-  background: rgba(var(--bg-rgb), 0.94);
+  padding: var(--space-8) var(--gutter) calc(var(--hint-h) + var(--space-8));
+  background: linear-gradient(
+    180deg,
+    rgba(var(--bg-rgb), 0) 0%,
+    rgba(var(--bg-rgb), 0.68) 140px,
+    rgba(var(--bg-rgb), 0.9) 320px
+  );
 }
 
 .chars {
-  padding: var(--space-6) var(--gutter) var(--space-10);
-  background: linear-gradient(180deg, rgba(var(--bg-rgb), 0.88), rgba(var(--bg-rgb), 0.96) 120px);
+  padding: var(--space-6) var(--gutter) calc(var(--hint-h) + var(--space-8));
+  background: linear-gradient(
+    180deg,
+    rgba(var(--bg-rgb), 0) 0%,
+    rgba(var(--bg-rgb), 0.68) 140px,
+    rgba(var(--bg-rgb), 0.9) 320px
+  );
 }
 
 .chars__toolbar {
@@ -721,6 +753,12 @@
 }
 
 /* ---------- Steam Integration Setup & Catalog ---------- */
+.steam-status-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .steam-setup {
   display: flex;
   flex-direction: column;
