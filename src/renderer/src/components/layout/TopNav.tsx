@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { cx } from '@renderer/lib/cx'
+import { isSpatialFocusActive } from '@renderer/lib/focus'
 import { useAppStore, type Route } from '@renderer/state/appStore'
 
 const ITEMS: Array<{ name: Route['name']; label: string }> = [
@@ -14,8 +15,8 @@ const routeFor = (name: Route['name']): Route => (name === 'collections' ? { nam
 
 /**
  * PlayStation-style category bar. The accent line under the active category slides
- * between items instead of jumping. Switching happens on click or Enter, never on
- * mere focus, so arrow keys can pass over categories without reloading the screen.
+ * between items instead of jumping. Focusing a category via keyboard or controller
+ * switches to that tab immediately, matching how game tiles select on focus.
  */
 export function TopNav() {
   const history = useAppStore((state) => state.history)
@@ -44,6 +45,14 @@ export function TopNav() {
           className={cx('topnav__item', active === item.name && 'is-active')}
           data-nav=""
           aria-current={active === item.name ? 'page' : undefined}
+          onFocus={(event) => {
+            if (
+              (isSpatialFocusActive() || event.currentTarget.matches(':focus-visible')) &&
+              (active !== item.name || history.length > 1)
+            ) {
+              navigate(routeFor(item.name))
+            }
+          }}
           onClick={() => navigate(routeFor(item.name))}
         >
           {item.label}

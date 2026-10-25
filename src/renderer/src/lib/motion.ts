@@ -69,12 +69,12 @@ export function ensureVisibleVertically(element: HTMLElement): void {
   const topBox = (rowOrSetting ?? element).getBoundingClientRect()
   const bottomBox = element.getBoundingClientRect()
   const view = scroller.getBoundingClientRect()
-  const topMargin = view.top + 104
+  const topMargin = view.top + 116
   const bottomMargin = view.bottom - 56
 
   if (topBox.top < topMargin) {
     const nextTop = Math.max(0, scroller.scrollTop - (topMargin - topBox.top))
-    animateScroll(scroller, { top: nextTop < 120 ? 0 : nextTop }, 320)
+    animateScroll(scroller, { top: nextTop < 140 ? 0 : nextTop }, 320)
   } else if (bottomBox.bottom > bottomMargin) {
     animateScroll(scroller, { top: scroller.scrollTop + (bottomBox.bottom - bottomMargin) }, 320)
   }

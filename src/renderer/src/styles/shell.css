@@ -23,13 +23,16 @@
 .shell__main {
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   height: 100%;
   overflow: hidden;
 }
 
 .shell__view {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 /* Every screen eases in gently without blanking the frame. */
@@ -157,7 +160,7 @@
   align-items: center;
   gap: var(--space-5);
   height: var(--topbar-h);
-  padding: 0 var(--gutter);
+  padding: 10px var(--gutter) 0;
   pointer-events: none;
 }
 
@@ -169,12 +172,12 @@
 .topbar::before {
   content: '';
   position: absolute;
-  inset: 0 0 -28px;
+  inset: 0 0 -32px;
   z-index: -1;
   background: linear-gradient(
     180deg,
-    rgba(var(--bg-rgb), 0.88) 0%,
-    rgba(var(--bg-rgb), 0.48) 54%,
+    rgba(var(--bg-rgb), 0.9) 0%,
+    rgba(var(--bg-rgb), 0.52) 56%,
     rgba(var(--bg-rgb), 0) 100%
   );
   pointer-events: none;
@@ -214,8 +217,8 @@
 }
 
 .topnav__item {
-  padding: 6px 12px;
-  margin-inline: -10px;
+  padding: 7px 14px;
+  margin-inline: -12px;
   border-radius: var(--radius-pill);
   color: var(--text-dim);
   font-size: 1.0625rem;
@@ -233,16 +236,16 @@
 .topnav__item:focus-visible,
 :root[data-nav-focus] .topnav__item:focus {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: 0px;
   background: color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--text);
   box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 38%, transparent);
 }
 
-/* One accent line slides to whichever category is active. */
+/* One accent line slides to whichever category is active, kept cleanly below the focus pill. */
 .topnav__bar {
   position: absolute;
-  bottom: 14px;
+  bottom: 6px;
   left: 0;
   height: 3px;
   border-radius: 3px;
@@ -423,23 +426,22 @@
 
 /* ---------- Control hints ---------- */
 .hints {
-  position: absolute;
+  position: relative;
   z-index: 15;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-5);
   height: var(--hint-h);
   padding: 0 var(--gutter);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
   background: linear-gradient(
     0deg,
-    rgba(var(--bg-rgb), 0.84) 0%,
-    rgba(var(--bg-rgb), 0.42) 55%,
-    rgba(var(--bg-rgb), 0) 100%
+    rgba(var(--bg-rgb), 0.94) 0%,
+    rgba(var(--bg-rgb), 0.78) 100%
   );
+  backdrop-filter: blur(12px);
   color: var(--text-faint);
   font-size: var(--text-xs);
   pointer-events: none;

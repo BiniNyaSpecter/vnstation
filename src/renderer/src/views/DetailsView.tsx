@@ -10,6 +10,7 @@ import { Button } from '@renderer/components/ui/Button'
 import { EmptyState } from '@renderer/components/ui/EmptyState'
 import { Icon } from '@renderer/components/ui/Icon'
 import { cx } from '@renderer/lib/cx'
+import { isSpatialFocusActive } from '@renderer/lib/focus'
 import { formatRelativeDate, formatReleaseDate, formatSessionDuration, RATING_LABELS } from '@renderer/lib/format'
 import { playSound } from '@renderer/lib/sound'
 import { services } from '@renderer/services'
@@ -114,6 +115,11 @@ function DetailsContent({ game }: { game: Game }) {
             aria-selected={activeTab === 'overview'}
             className={cx('details__tab', activeTab === 'overview' && 'is-active')}
             data-nav=""
+            onFocus={(event) => {
+              if ((isSpatialFocusActive() || event.currentTarget.matches(':focus-visible')) && activeTab !== 'overview') {
+                setActiveTab('overview')
+              }
+            }}
             onClick={() => {
               playSound('select')
               setActiveTab('overview')
@@ -127,6 +133,11 @@ function DetailsContent({ game }: { game: Game }) {
             aria-selected={activeTab === 'characters'}
             className={cx('details__tab', activeTab === 'characters' && 'is-active')}
             data-nav=""
+            onFocus={(event) => {
+              if ((isSpatialFocusActive() || event.currentTarget.matches(':focus-visible')) && activeTab !== 'characters') {
+                setActiveTab('characters')
+              }
+            }}
             onClick={() => {
               playSound('select')
               setActiveTab('characters')

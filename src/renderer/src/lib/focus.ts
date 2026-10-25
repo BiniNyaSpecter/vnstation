@@ -127,16 +127,21 @@ export function moveFocus(direction: Direction): boolean {
 
   // Pressing Down from the top bar jumps straight into the page's default entry point
   // (selected game or primary action) instead of whichever random element is geometrically below.
-  if (inTopBar(active) && direction === 'down') {
-    if (focusEntryPoint()) return true
+  if (inTopBar(active)) {
+    if (direction === 'down') return focusEntryPoint()
+    return focusBest(active, direction, items.filter(inTopBar))
   }
 
-  if (focusBest(active, direction, items.filter((element) => !inRail(element)))) return true
+  // Inside page content: navigate within page controls first so vertical moves never skip
+  // intermediate toolbars (Sort/Filter, Play actions, New Collection) to jump straight to the top bar.
+  const pageItems = items.filter((element) => !inRail(element) && !inTopBar(element))
+  if (focusBest(active, direction, pageItems)) return true
 
-  // Pressing Up from the top of the page reaches the active top-bar category if present.
-  if (direction === 'up' && !inTopBar(active)) {
+  // Pressing Up from the topmost page control reaches the active top-bar category if present.
+  if (direction === 'up') {
     const activeTopTab =
       document.querySelector<HTMLElement>('.topnav [aria-current="page"]') ??
+      document.querySelector<HTMLElement>('.topbar [aria-current="page"]') ??
       document.querySelector<HTMLElement>('.topbar [data-nav]')
     if (focusTarget(activeTopTab ?? undefined)) return true
   }

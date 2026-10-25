@@ -145,7 +145,7 @@
   --text-lg: 1.125rem;
   --text-xl: 1.5rem;
   --text-2xl: 2.25rem;
-  --text-hero: clamp(2.25rem, 3.7vw, 3.6rem);
+  --text-hero: clamp(2rem, 3.2vw, 3.25rem);
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -165,11 +165,11 @@
 
   --rail-w: 232px;
   --rail-w-collapsed: 76px;
-  --topbar-h: 76px;
+  --topbar-h: 88px;
   --gutter: clamp(24px, 3.6vw, 56px);
 
-  --tile-w: clamp(100px, 15.5vh, 156px);
-  --tile-w-selected: calc(var(--tile-w) * 1.26);
+  --tile-w: clamp(96px, 13.5vh, 142px);
+  --tile-w-selected: calc(var(--tile-w) * 1.24);
   --grid-min: 150px;
 
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);

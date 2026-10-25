@@ -59,6 +59,7 @@ export function SettingsView() {
           <Row label="Theme" description="Choose a dark console background or a warm paper theme for daytime reading.">
             <Select
               label="Theme"
+              entryPoint
               value={prefs.theme}
               onChange={(value) => setPref('theme', value as ThemeId)}
               options={(Object.entries(THEMES) as Array<[ThemeId, { label: string }]>).map(([id, theme]) => ({

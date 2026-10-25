@@ -1,5 +1,6 @@
 import { APP_CONFIG } from '@shared/app-config'
 import { cx } from '@renderer/lib/cx'
+import { isSpatialFocusActive } from '@renderer/lib/focus'
 import { Icon, type IconName } from '@renderer/components/ui/Icon'
 import { useAppStore, type Route } from '@renderer/state/appStore'
 
@@ -40,6 +41,14 @@ export function NavRail() {
         aria-current={active === item.name ? 'page' : undefined}
         aria-label={item.label}
         title={collapsed ? item.label : undefined}
+        onFocus={(event) => {
+          if (
+            (isSpatialFocusActive() || event.currentTarget.matches(':focus-visible')) &&
+            (active !== item.name || history.length > 1)
+          ) {
+            navigate(routeFor(item.name))
+          }
+        }}
         onClick={() => navigate(routeFor(item.name))}
       >
         <Icon name={item.icon} size={22} />

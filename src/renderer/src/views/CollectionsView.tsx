@@ -35,10 +35,17 @@ export function CollectionsView({ collectionId }: { collectionId: string | null 
           />
         ) : (
           <div className="collections">
-            {collections.map((collection) => {
+            {collections.map((collection, index) => {
               const covers = collection.gameIds.slice(0, 3).flatMap((id) => byId.get(id) ?? [])
               return (
-                <button key={collection.id} type="button" className="collection" data-nav="" onClick={() => push({ name: 'collections', collectionId: collection.id })}>
+                <button
+                  key={collection.id}
+                  type="button"
+                  className="collection"
+                  data-nav=""
+                  data-nav-default={index === 0 ? '' : undefined}
+                  onClick={() => push({ name: 'collections', collectionId: collection.id })}
+                >
                   <span className="collection__stack" aria-hidden="true">
                     {covers.map((game, index) => (
                       <span key={game.id} className={`collection__cover collection__cover--${index}`}>

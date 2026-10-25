@@ -100,7 +100,7 @@
 
 /* ---------- Hero ---------- */
 .hero {
-  padding: 0 var(--gutter) var(--space-4);
+  padding: 0 var(--gutter) var(--space-3);
 }
 
 .hero__text {
@@ -152,7 +152,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3) var(--space-7);
-  margin: var(--space-5) 0 var(--space-4);
+  margin: var(--space-4) 0 var(--space-3);
 }
 
 .stats__item dt {
@@ -178,13 +178,22 @@
 
 .hero__synopsis {
   max-width: 56ch;
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-4);
   color: var(--text-dim);
   line-height: 1.6;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+@media (max-height: 860px) {
+  .hero__synopsis {
+    -webkit-line-clamp: 2;
+  }
+  .stats {
+    margin: var(--space-3) 0 var(--space-3);
+  }
 }
 
 .hero--compact .hero__title {
@@ -322,7 +331,7 @@
 
 /* ---------- Rows and grid ---------- */
 .row {
-  padding-top: var(--space-3);
+  padding-top: var(--space-2);
   transition: opacity 320ms var(--ease);
 }
 
@@ -375,9 +384,9 @@
   align-items: flex-end;
   gap: var(--space-4);
   /* Fixed height: rows never jump when the enlarged tile moves between them. */
-  min-height: calc(var(--tile-w-selected) * 1.5 + 78px);
+  min-height: calc(var(--tile-w-selected) * 1.5 + 62px);
   /* Smooth scrolling is done in script (eased, cancellable); snapping would fight it. */
-  padding: var(--space-4) var(--gutter) var(--space-4);
+  padding: var(--space-3) var(--gutter) var(--space-3);
   overflow-x: auto;
   overflow-y: hidden;
   scroll-padding-inline: var(--gutter);

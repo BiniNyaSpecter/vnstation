@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { APP_CONFIG } from '@shared/app-config'
 import { ACCENTS } from '@renderer/lib/prefs'
-import { activateFocused, moveFocus, setSpatialFocusActive } from '@renderer/lib/focus'
+import { activateFocused, focusEntryPoint, moveFocus, setSpatialFocusActive } from '@renderer/lib/focus'
 import { GamepadTracker } from '@renderer/lib/gamepad'
 import { configureSound, playSound } from '@renderer/lib/sound'
 import type { Direction } from '@renderer/lib/spatialNav'
@@ -46,7 +46,24 @@ function useGlobalShortcuts(): void {
         state.setPref('railCollapsed', !state.prefs.railCollapsed)
         return
       }
-      if (event.ctrlKey || event.metaKey || isTyping(active)) return
+      if (event.ctrlKey || event.metaKey) return
+
+      if (isTyping(active)) {
+        if (event.key === 'Escape' && active instanceof HTMLElement) {
+          event.preventDefault()
+          active.blur()
+          focusEntryPoint()
+        } else if (
+          active instanceof HTMLElement &&
+          active.id === 'global-search' &&
+          (event.key === 'ArrowDown' || event.key === 'Enter')
+        ) {
+          event.preventDefault()
+          active.blur()
+          focusEntryPoint()
+        }
+        return
+      }
 
       if (event.key === '/') {
         event.preventDefault()
@@ -62,12 +79,22 @@ function useGlobalShortcuts(): void {
       } else if (event.key.toLowerCase() === 'f' && state.selectedGameId && state.route.name !== 'settings') {
         event.preventDefault()
         void state.toggleFavorite(state.selectedGameId)
+      } else if (event.key === 'Enter' && (!active || active === document.body)) {
+        if (focusEntryPoint()) {
+          event.preventDefault()
+          playSound('move')
+        }
       } else if (event.key in ARROWS) {
         // Only take over when focus is on the page or a navigable element, never inside menus.
         const onPage = !active || active === document.body || active.hasAttribute('data-nav')
-        if (onPage && moveFocus(ARROWS[event.key])) {
-          event.preventDefault()
-          playSound('move')
+        if (onPage) {
+          if (active instanceof HTMLSelectElement) {
+            event.preventDefault()
+          }
+          if (moveFocus(ARROWS[event.key])) {
+            event.preventDefault()
+            playSound('move')
+          }
         }
       }
     }

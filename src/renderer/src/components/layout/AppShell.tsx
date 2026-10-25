@@ -52,6 +52,11 @@ export function AppShell() {
         if (currentTab && currentTab !== active) currentTab.focus({ preventScroll: true })
         return
       }
+      if (active instanceof HTMLElement && active.classList.contains('rail__item') && route.name !== 'details') {
+        const currentRail = document.querySelector<HTMLElement>('[data-nav-scope="rail"] [aria-current="page"]')
+        if (currentRail && currentRail !== active) currentRail.focus({ preventScroll: true })
+        return
+      }
       const inChrome = active instanceof HTMLElement && (active.closest('.topbar') || active.closest('[data-nav-scope="rail"]'))
       if (!inChrome || route.name === 'details') {
         focusEntryPoint()
