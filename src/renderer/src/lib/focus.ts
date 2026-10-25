@@ -1,10 +1,12 @@
-import { ensureVisibleVertically } from './motion'
-import { pickNext, type Direction } from './spatialNav'
+import { animateScroll, ensureVisibleVertically } from './motion'
+import { pickNext, type Box, type Direction } from './spatialNav'
 
 const NAV_SELECTOR = '[data-nav]'
 const RAIL_SELECTOR = '[data-nav-scope="rail"]'
 const TOPBAR_SELECTOR = '.topbar'
 const DIALOG_FOCUSABLE = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])'
+
+let lastFocusedBox: Box | null = null
 
 /**
  * Marks that focus is being driven by keyboard or controller navigation so CSS
@@ -63,20 +65,26 @@ function focusTarget(target: HTMLElement | undefined): boolean {
   setSpatialFocusActive(true)
   target.focus({ preventScroll: true })
   ensureVisibleVertically(target)
+  lastFocusedBox = target.getBoundingClientRect()
   return true
 }
 
-function focusBest(from: HTMLElement, direction: Direction, pool: HTMLElement[]): boolean {
+function focusBestFromBox(fromBox: Box, direction: Direction, pool: HTMLElement[]): boolean {
   const index = pickNext(
-    from.getBoundingClientRect(),
+    fromBox,
     direction,
     pool.map((element) => element.getBoundingClientRect())
   )
   return focusTarget(pool[index])
 }
 
+function focusBest(from: HTMLElement, direction: Direction, pool: HTMLElement[]): boolean {
+  return focusBestFromBox(from.getBoundingClientRect(), direction, pool)
+}
+
 /** Moves focus into the page content (selected tile or primary action) or the active dialog. */
 export function focusEntryPoint(): boolean {
+  lastFocusedBox = null
   const modal = openModalDialog()
   if (modal) {
     return focusTarget(visibleNavItems()[0])
@@ -117,8 +125,15 @@ export function moveFocus(direction: Direction): boolean {
     return focusBest(active, direction, items)
   }
 
-  if (!(active instanceof HTMLElement) || !active.hasAttribute('data-nav')) return focusEntryPoint()
+  if (!(active instanceof HTMLElement) || !active.hasAttribute('data-nav')) {
+    const pageItems = visibleNavItems().filter((element) => !inRail(element) && !inTopBar(element))
+    if (lastFocusedBox && pageItems.length > 0 && focusBestFromBox(lastFocusedBox, direction, pageItems)) {
+      return true
+    }
+    return focusEntryPoint()
+  }
 
+  lastFocusedBox = active.getBoundingClientRect()
   const items = visibleNavItems()
   if (inRail(active)) {
     if (direction === 'right') return focusEntryPoint()
@@ -137,8 +152,26 @@ export function moveFocus(direction: Direction): boolean {
   const pageItems = items.filter((element) => !inRail(element) && !inTopBar(element))
   if (focusBest(active, direction, pageItems)) return true
 
+  // At the bottom of a scrollable view (e.g. Settings where Storage / About are below the last control),
+  // allow Down arrow to scroll the remaining read-only content into view.
+  if (direction === 'down') {
+    const scroller = active.closest<HTMLElement>('[data-scroll-y]')
+    if (scroller && scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight - 8) {
+      animateScroll(
+        scroller,
+        { top: Math.min(scroller.scrollHeight - scroller.clientHeight, scroller.scrollTop + 220) },
+        260
+      )
+      return true
+    }
+  }
+
   // Pressing Up from the topmost page control reaches the active top-bar category if present.
   if (direction === 'up') {
+    const scroller = active.closest<HTMLElement>('[data-scroll-y]')
+    if (scroller && scroller.scrollTop > 0) {
+      animateScroll(scroller, { top: 0 }, 260)
+    }
     const activeTopTab =
       document.querySelector<HTMLElement>('.topnav [aria-current="page"]') ??
       document.querySelector<HTMLElement>('.topbar [aria-current="page"]') ??

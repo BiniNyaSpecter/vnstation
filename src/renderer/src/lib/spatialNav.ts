@@ -17,34 +17,62 @@ const centerY = (box: Box): number => box.top + box.height / 2
 
 /**
  * Returns the index of the best candidate in `direction`, or -1.
- * Horizontal moves stay on the same visual row; vertical moves prefer the
- * candidate that is closest and best aligned.
+ * Horizontal moves stay on the same visual row; vertical moves step to the nearest
+ * visual row in that direction and pick the horizontally closest item in that row
+ * so intermediate rows are never skipped.
  */
 export function pickNext(from: Box, direction: Direction, candidates: readonly Box[]): number {
   const horizontal = direction === 'left' || direction === 'right'
   let best = -1
   let bestScore = Number.POSITIVE_INFINITY
 
+  if (horizontal) {
+    candidates.forEach((box, index) => {
+      const dx = centerX(box) - centerX(from)
+      const dy = centerY(box) - centerY(from)
+      const ahead = direction === 'right' ? dx > 1 : dx < -1
+      if (!ahead) return
+
+      const overlap = Math.min(from.top + from.height, box.top + box.height) - Math.max(from.top, box.top)
+      if (overlap <= 0) return
+
+      const score = Math.abs(dx) + Math.abs(dy) * 3
+      if (score < bestScore) {
+        best = index
+        bestScore = score
+      }
+    })
+    return best
+  }
+
+  const valid: Array<{ index: number; box: Box; absDx: number; absDy: number }> = []
   candidates.forEach((box, index) => {
     const dx = centerX(box) - centerX(from)
     const dy = centerY(box) - centerY(from)
-    const ahead =
-      direction === 'right' ? dx > 1 : direction === 'left' ? dx < -1 : direction === 'down' ? dy > 1 : dy < -1
+    const ahead = direction === 'down' ? dy > 1 : dy < -1
     if (!ahead) return
 
-    if (horizontal) {
-      const overlap = Math.min(from.top + from.height, box.top + box.height) - Math.max(from.top, box.top)
-      if (overlap <= 0) return
-    }
+    // Ignore controls that sit on the same visual row as `from`.
+    const overlap = Math.min(from.top + from.height, box.top + box.height) - Math.max(from.top, box.top)
+    const minH = Math.min(from.height, box.height)
+    if (minH > 0 && overlap > minH * 0.4) return
 
-    const primary = horizontal ? Math.abs(dx) : Math.abs(dy)
-    const secondary = horizontal ? Math.abs(dy) : Math.abs(dx)
-    const score = primary + secondary * 3
+    valid.push({ index, box, absDx: Math.abs(dx), absDy: Math.abs(dy) })
+  })
+
+  if (valid.length === 0) return -1
+
+  const minDy = Math.min(...valid.map((candidate) => candidate.absDy))
+  const rowTolerance = Math.max(from.height, 48)
+
+  for (const candidate of valid) {
+    if (candidate.absDy > minDy + rowTolerance) continue
+    const score = candidate.absDx + candidate.absDy * 0.5
     if (score < bestScore) {
-      best = index
+      best = candidate.index
       bestScore = score
     }
-  })
+  }
 
   return best
 }

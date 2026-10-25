@@ -67,7 +67,7 @@ export function ensureVisibleVertically(element: HTMLElement): void {
 
   const rowOrSetting = element.closest<HTMLElement>('.row, .setting')
   const topBox = (rowOrSetting ?? element).getBoundingClientRect()
-  const bottomBox = element.getBoundingClientRect()
+  const bottomBox = (rowOrSetting ?? element).getBoundingClientRect()
   const view = scroller.getBoundingClientRect()
   const topMargin = view.top + 116
   const bottomMargin = view.bottom - 56

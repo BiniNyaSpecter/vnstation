@@ -252,7 +252,7 @@ export function SteamSection() {
           </div>
         )}
 
-        {(!connected || showConfigForm) && (
+        {showConfigForm && (
           <div className="steam-setup">
             <div className="steam-setup__card">
               <h3 className="steam-setup__title">Option A · Steam Web API (Owned games & playtime)</h3>
@@ -267,6 +267,7 @@ export function SteamSection() {
                   <input
                     type="text"
                     className="input"
+                    data-nav=""
                     placeholder="76561198000000000 or https://steamcommunity.com/id/yourname"
                     value={steamIdInput}
                     onChange={(e) => setSteamIdInput(e.target.value)}
@@ -279,6 +280,7 @@ export function SteamSection() {
                   <input
                     type="password"
                     className="input"
+                    data-nav=""
                     autoComplete="off"
                     placeholder={status?.hasApiKey ? '••••••••••••••••••••••••••••••••' : '32-character hexadecimal key'}
                     value={apiKeyInput}
@@ -310,6 +312,7 @@ export function SteamSection() {
                     <input
                       type="text"
                       className="input"
+                      data-nav=""
                       placeholder="C:\Program Files (x86)\Steam"
                       value={localPathInput}
                       onChange={(e) => setLocalPathInput(e.target.value)}

@@ -145,7 +145,6 @@ export function SettingsView() {
                 data-nav=""
                 onChange={(event) => setPref('soundVolume', Number(event.target.value))}
                 onPointerUp={() => playSound('select')}
-                onKeyUp={() => playSound('move')}
               />
               <span className="range__value">{Math.round(prefs.soundVolume * 100)}%</span>
             </div>
@@ -186,11 +185,9 @@ export function SettingsView() {
             />
           </Row>
           <Row label="Sample games" description="Invented titles with generated artwork, for previewing the interface. They stay separate from your own games and can be removed at any time.">
-            {hasSamples ? (
-              <Button onClick={() => void removeSampleGames()}>Remove sample games</Button>
-            ) : (
-              <Button onClick={() => void addSampleGames()}>Add sample games</Button>
-            )}
+            <Button onClick={() => void (hasSamples ? removeSampleGames() : addSampleGames())}>
+              {hasSamples ? 'Remove sample games' : 'Add sample games'}
+            </Button>
           </Row>
         </Section>
 

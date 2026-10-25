@@ -61,6 +61,13 @@ function useGlobalShortcuts(): void {
           event.preventDefault()
           active.blur()
           focusEntryPoint()
+        } else if (
+          active instanceof HTMLInputElement &&
+          (event.key === 'ArrowUp' || event.key === 'ArrowDown') &&
+          moveFocus(ARROWS[event.key])
+        ) {
+          event.preventDefault()
+          playSound('move')
         }
         return
       }
@@ -88,7 +95,10 @@ function useGlobalShortcuts(): void {
         // Only take over when focus is on the page or a navigable element, never inside menus.
         const onPage = !active || active === document.body || active.hasAttribute('data-nav')
         if (onPage) {
-          if (active instanceof HTMLSelectElement) {
+          if (
+            active instanceof HTMLSelectElement ||
+            (active instanceof HTMLInputElement && active.type === 'range')
+          ) {
             event.preventDefault()
           }
           if (moveFocus(ARROWS[event.key])) {
@@ -102,10 +112,10 @@ function useGlobalShortcuts(): void {
       setSpatialFocusActive(false)
       appStore.getState().setInputState({ inputMode: 'keyboard' })
     }
-    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keydown', onKeyDown, true)
     window.addEventListener('pointerdown', onPointerDown, { passive: true })
     return () => {
-      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keydown', onKeyDown, true)
       window.removeEventListener('pointerdown', onPointerDown)
     }
   }, [])
