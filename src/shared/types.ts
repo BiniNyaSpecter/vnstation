@@ -7,6 +7,12 @@
  * works with the merged `Game` view model produced by `resolveEntry`.
  */
 
+import type { SpoilerPreference } from './characters'
+import type { LibrarySource } from './steam'
+
+export type { SpoilerPreference } from './characters'
+export type { LibrarySource } from './steam'
+
 export type ContentRating = 'unrated' | 'all-ages' | 'teen' | 'mature' | 'restricted'
 
 export type MetadataProviderId = 'vndb' | 'sample'
@@ -72,6 +78,14 @@ export interface GameEntry {
   addedAt: string
   lastPlayedAt: string | null
   playtimeMinutes: number
+  /** How this game entered the library (`manual`, `steam-api`, or `steam-local`). */
+  librarySource?: LibrarySource
+  /** Linked Steam AppID when imported from Steam or matched via Steam. */
+  steamAppId?: number | null
+  /** Whether the Steam entry is installed locally (`null` for manual games). */
+  steamInstalled?: boolean | null
+  /** False when a previously synced Steam entry is no longer found in the latest sync. */
+  steamAvailable?: boolean
   /** True for development preview data. Never set for real library entries. */
   isSample: boolean
 }
@@ -101,6 +115,10 @@ export interface Game {
   metadataFetchedAt: string | null
   hasCustomCover: boolean
   hasCustomBackground: boolean
+  librarySource: LibrarySource
+  steamAppId: number | null
+  steamInstalled: boolean | null
+  steamAvailable: boolean
   isSample: boolean
   addedAt: string
   lastPlayedAt: string | null
@@ -155,4 +173,6 @@ export interface Preferences {
   gamepadEnabled: boolean
   /** Which face button confirms selections ("south" = A/Cross, "east" = B/Circle). */
   gamepadConfirm: GamepadConfirm
+  /** Default spoiler filter in the character compendium ("hide", "minor", or "all"). */
+  spoilerPreference: SpoilerPreference
 }

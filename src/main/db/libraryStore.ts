@@ -1,7 +1,16 @@
 import { randomUUID } from 'node:crypto'
+import type { CharacterBiographySegment, CharacterRecord, CharacterRole, CharacterTrait, SpoilerLevel } from '@shared/characters'
 import type { CollectionInput, GameEntryPatch, LibraryRepository, LibrarySnapshot, NewGameDraft, VerifyResult } from '@shared/contracts'
 import type { PlayHistory, PlaySession, SessionTracking } from '@shared/launcher'
 import { createSampleSnapshot } from '@shared/sampleLibrary'
+import type {
+  ClassificationConfidence,
+  ClassificationOverride,
+  LibrarySource,
+  SteamCandidateMatch,
+  SteamCatalogItem,
+  VnClassification
+} from '@shared/steam'
 import type { ArtMotif, Collection, ContentRating, GameEntry, MetadataProviderId, ProviderMetadata } from '@shared/types'
 import { ART_URL_PREFIX } from '@shared/metadata'
 import { UserFacingError } from '../errors'
@@ -18,6 +27,10 @@ type GameRow = {
   last_played_at: string | null
   playtime_minutes: number
   playtime_seconds: number
+  library_source: string | null
+  steam_app_id: number | null
+  steam_installed: number | null
+  steam_available: number | null
   is_sample: number
   art_motif: string | null
   art_hue: number | null
@@ -144,6 +157,10 @@ export class LibraryStore implements LibraryRepository {
         addedAt: row.added_at,
         lastPlayedAt: row.last_played_at,
         playtimeMinutes: Math.floor(row.playtime_seconds / 60),
+        librarySource: ((row.library_source ?? 'manual') as LibrarySource),
+        steamAppId: row.steam_app_id !== null && row.steam_app_id !== undefined ? Number(row.steam_app_id) : null,
+        steamInstalled: row.steam_installed === null || row.steam_installed === undefined ? null : row.steam_installed === 1,
+        steamAvailable: row.steam_available === null || row.steam_available === undefined ? true : row.steam_available === 1,
         isSample: row.is_sample === 1
       }
     })
@@ -197,11 +214,16 @@ export class LibraryStore implements LibraryRepository {
 
   private insertEntry(entry: GameEntry): void {
     const { id, launch, provider, user, art } = entry
+    const librarySource = entry.librarySource ?? 'manual'
+    const steamAppId = entry.steamAppId ?? null
+    const steamInstalled = entry.steamInstalled === undefined || entry.steamInstalled === null ? null : (entry.steamInstalled ? 1 : 0)
+    const steamAvailable = entry.steamAvailable === false ? 0 : 1
     this.db.run(
-      `INSERT INTO games (id, executable_path, working_directory, launch_arguments, favorite, added_at, last_played_at, playtime_minutes, playtime_seconds, is_sample, art_motif, art_hue)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO games (id, executable_path, working_directory, launch_arguments, favorite, added_at, last_played_at, playtime_minutes, playtime_seconds, library_source, steam_app_id, steam_installed, steam_available, is_sample, art_motif, art_hue)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id, launch.executablePath, launch.workingDirectory, launch.arguments, entry.favorite ? 1 : 0, entry.addedAt,
-      entry.lastPlayedAt, entry.playtimeMinutes, entry.playtimeMinutes * 60, entry.isSample ? 1 : 0, art?.motif ?? null, art?.hue ?? null
+      entry.lastPlayedAt, entry.playtimeMinutes, entry.playtimeMinutes * 60, librarySource, steamAppId, steamInstalled, steamAvailable,
+      entry.isSample ? 1 : 0, art?.motif ?? null, art?.hue ?? null
     )
     this.db.run(
       `INSERT INTO game_provider_metadata (game_id, provider, external_id, title, original_title, synopsis, developer, release_date, original_language, content_rating, cover_url, background_url, fetched_at)
@@ -277,6 +299,7 @@ export class LibraryStore implements LibraryRepository {
     const pattern = `${ART_URL_PREFIX}vndb/%`
     this.db.run('UPDATE game_provider_metadata SET cover_url = NULL WHERE cover_url LIKE ?', pattern)
     this.db.run('UPDATE game_provider_metadata SET background_url = NULL WHERE background_url LIKE ?', pattern)
+    this.db.run('UPDATE vn_characters SET portrait_url = NULL WHERE portrait_url LIKE ?', pattern)
   }
 
   async updateGame(id: string, patch: GameEntryPatch): Promise<GameEntry> {
@@ -325,7 +348,15 @@ export class LibraryStore implements LibraryRepository {
   }
 
   async verifyGame(id: string): Promise<VerifyResult> {
-    const { launch } = this.requireEntry(id)
+    const entry = this.requireEntry(id)
+    const { launch } = entry
+    if (launch.executablePath.startsWith('steam://rungameid/')) {
+      const workingDirectoryExists = launch.workingDirectory ? await pathExists(launch.workingDirectory, 'directory') : true
+      return {
+        executableExists: entry.steamAvailable !== false,
+        workingDirectoryExists
+      }
+    }
     const [executableExists, workingDirectoryExists] = await Promise.all([
       pathExists(launch.executablePath, 'file'),
       pathExists(launch.workingDirectory, 'directory')
@@ -537,5 +568,405 @@ export class LibraryStore implements LibraryRepository {
       })),
       totalSessions: Number(total?.n ?? 0)
     }
+  }
+
+  // ---- Steam catalog and non-destructive library sync ----
+
+  findBySteamAppId(steamAppId: number): GameEntry | null {
+    const row = this.db.get<{ id: string }>('SELECT id FROM games WHERE steam_app_id = ?', steamAppId)
+    return row ? this.findEntry(row.id) : null
+  }
+
+  /**
+   * Inserts a newly discovered Steam visual novel or updates an existing Steam entry
+   * without touching user edits, favorites, custom artwork, collections, or play sessions.
+   */
+  upsertSteamGame(input: {
+    steamAppId: number
+    title: string
+    source: 'steam-api' | 'steam-local'
+    installed: boolean
+    installDir: string | null
+    playtimeMinutes: number
+    lastPlayedAt: string | null
+    available: boolean
+  }): { entry: GameEntry; created: boolean } {
+    return this.db.transaction(() => {
+      const existingRow = this.db.get<{
+        id: string
+        executable_path: string
+        working_directory: string
+        playtime_seconds: number
+        last_played_at: string | null
+      }>('SELECT id, executable_path, working_directory, playtime_seconds, last_played_at FROM games WHERE steam_app_id = ?', input.steamAppId)
+
+      const steamUri = `steam://rungameid/${input.steamAppId}`
+
+      if (existingRow) {
+        const nextSeconds = Math.max(Number(existingRow.playtime_seconds ?? 0), Math.max(0, Math.trunc(input.playtimeMinutes)) * 60)
+        const nextMinutes = Math.floor(nextSeconds / 60)
+        const nextLastPlayed =
+          input.lastPlayedAt && (!existingRow.last_played_at || input.lastPlayedAt > existingRow.last_played_at)
+            ? input.lastPlayedAt
+            : existingRow.last_played_at
+        const nextWorkingDir =
+          existingRow.executable_path === steamUri && input.installDir
+            ? input.installDir
+            : existingRow.working_directory
+
+        this.db.run(
+          `UPDATE games
+           SET library_source = ?, steam_installed = ?, steam_available = ?,
+               playtime_seconds = ?, playtime_minutes = ?, last_played_at = ?, working_directory = ?
+           WHERE id = ?`,
+          input.source,
+          input.installed ? 1 : 0,
+          input.available ? 1 : 0,
+          nextSeconds,
+          nextMinutes,
+          nextLastPlayed,
+          nextWorkingDir,
+          existingRow.id
+        )
+        return { entry: this.requireEntry(existingRow.id), created: false }
+      }
+
+      const id = `game-${this.newId()}`
+      const entry: GameEntry = {
+        id,
+        launch: {
+          executablePath: steamUri,
+          workingDirectory: input.installDir ?? '',
+          arguments: ''
+        },
+        provider: {
+          source: null,
+          title: null,
+          originalTitle: null,
+          altTitles: [],
+          synopsis: null,
+          developer: null,
+          releaseDate: null,
+          originalLanguage: null,
+          languages: [],
+          genres: [],
+          tags: [],
+          contentRating: 'unrated',
+          coverUrl: null,
+          backgroundUrl: null,
+          fetchedAt: null
+        },
+        user: {
+          title: input.title.trim() || `Steam App ${input.steamAppId}`,
+          synopsis: null,
+          developer: null,
+          releaseDate: null,
+          coverUrl: null,
+          backgroundUrl: null,
+          notes: ''
+        },
+        art: null,
+        favorite: false,
+        addedAt: this.now().toISOString(),
+        lastPlayedAt: input.lastPlayedAt,
+        playtimeMinutes: Math.max(0, Math.trunc(input.playtimeMinutes)),
+        librarySource: input.source,
+        steamAppId: input.steamAppId,
+        steamInstalled: input.installed,
+        steamAvailable: input.available,
+        isSample: false
+      }
+      this.insertEntry(entry)
+      return { entry: this.requireEntry(id), created: true }
+    })
+  }
+
+  /**
+   * Marks previously imported Steam entries that were absent from the latest sync as
+   * unavailable (`steam_available = 0`) without deleting them from the library.
+   */
+  markMissingSteamEntriesUnavailable(seenAppIds: ReadonlySet<number>, source?: 'steam-api' | 'steam-local'): number {
+    return this.db.transaction(() => {
+      const rows = this.db.all<{ steam_app_id: number; source: string; game_id: string | null }>(
+        source
+          ? 'SELECT steam_app_id, source, game_id FROM steam_catalog WHERE source = ?'
+          : 'SELECT steam_app_id, source, game_id FROM steam_catalog',
+        ...(source ? [source] : [])
+      )
+      let count = 0
+      for (const row of rows) {
+        const appId = Number(row.steam_app_id)
+        if (!seenAppIds.has(appId)) {
+          this.db.run(
+            'UPDATE steam_catalog SET available = 0, installed = CASE WHEN source = \'steam-local\' THEN 0 ELSE installed END WHERE steam_app_id = ?',
+            appId
+          )
+          const changes = this.db.run(
+            'UPDATE games SET steam_available = 0, steam_installed = CASE WHEN library_source = \'steam-local\' THEN 0 ELSE steam_installed END WHERE steam_app_id = ? AND steam_available = 1',
+            appId
+          ).changes
+          if (changes > 0) count += changes
+        }
+      }
+      return count
+    })
+  }
+
+  /** Explicitly removes Steam library entries that are currently marked unavailable. */
+  cleanupUnavailableSteamGames(): number {
+    return this.db.transaction(() => {
+      const rows = this.db.all<{ id: string }>(
+        "SELECT id FROM games WHERE library_source IN ('steam-api', 'steam-local') AND steam_available = 0"
+      )
+      for (const row of rows) {
+        this.db.run('DELETE FROM games WHERE id = ?', row.id)
+      }
+      this.pruneOrphanTags()
+      return rows.length
+    })
+  }
+
+  listSteamCatalog(): SteamCatalogItem[] {
+    const rows = this.db.all<{
+      steam_app_id: number
+      name: string
+      source: string
+      installed: number
+      install_dir: string | null
+      playtime_minutes: number
+      last_played_at: string | null
+      classification: string
+      confidence: string
+      reason: string
+      manual_override: string | null
+      vndb_id: string | null
+      vndb_title: string | null
+      candidates_json: string
+      game_id: string | null
+      available: number
+      synced_at: string
+    }>('SELECT * FROM steam_catalog ORDER BY name COLLATE NOCASE ASC, steam_app_id ASC')
+    return rows.map((row) => this.mapCatalogRow(row))
+  }
+
+  getSteamCatalogItem(steamAppId: number): SteamCatalogItem | null {
+    const row = this.db.get<{
+      steam_app_id: number
+      name: string
+      source: string
+      installed: number
+      install_dir: string | null
+      playtime_minutes: number
+      last_played_at: string | null
+      classification: string
+      confidence: string
+      reason: string
+      manual_override: string | null
+      vndb_id: string | null
+      vndb_title: string | null
+      candidates_json: string
+      game_id: string | null
+      available: number
+      synced_at: string
+    }>('SELECT * FROM steam_catalog WHERE steam_app_id = ?', steamAppId)
+    return row ? this.mapCatalogRow(row) : null
+  }
+
+  saveSteamCatalogItem(item: SteamCatalogItem): void {
+    this.db.run(
+      `INSERT INTO steam_catalog (
+         steam_app_id, name, source, installed, install_dir, playtime_minutes, last_played_at,
+         classification, confidence, reason, manual_override, vndb_id, vndb_title, candidates_json,
+         game_id, available, synced_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (steam_app_id) DO UPDATE SET
+         name = excluded.name,
+         source = excluded.source,
+         installed = excluded.installed,
+         install_dir = excluded.install_dir,
+         playtime_minutes = excluded.playtime_minutes,
+         last_played_at = excluded.last_played_at,
+         classification = excluded.classification,
+         confidence = excluded.confidence,
+         reason = excluded.reason,
+         manual_override = excluded.manual_override,
+         vndb_id = excluded.vndb_id,
+         vndb_title = excluded.vndb_title,
+         candidates_json = excluded.candidates_json,
+         game_id = excluded.game_id,
+         available = excluded.available,
+         synced_at = excluded.synced_at`,
+      item.steamAppId,
+      item.name,
+      item.source,
+      item.installed ? 1 : 0,
+      item.installDir,
+      Math.max(0, Math.trunc(item.playtimeMinutes)),
+      item.lastPlayedAt,
+      item.classification,
+      item.confidence,
+      item.reason,
+      item.manualOverride,
+      item.vndbId,
+      item.vndbTitle,
+      JSON.stringify(item.candidateMatches),
+      item.gameId,
+      item.available ? 1 : 0,
+      item.syncedAt
+    )
+  }
+
+  private mapCatalogRow(row: {
+    steam_app_id: number
+    name: string
+    source: string
+    installed: number
+    install_dir: string | null
+    playtime_minutes: number
+    last_played_at: string | null
+    classification: string
+    confidence: string
+    reason: string
+    manual_override: string | null
+    vndb_id: string | null
+    vndb_title: string | null
+    candidates_json: string
+    game_id: string | null
+    available: number
+    synced_at: string
+  }): SteamCatalogItem {
+    let candidateMatches: SteamCandidateMatch[] = []
+    try {
+      const parsed = JSON.parse(row.candidates_json)
+      if (Array.isArray(parsed)) candidateMatches = parsed as SteamCandidateMatch[]
+    } catch {
+      candidateMatches = []
+    }
+    return {
+      steamAppId: Number(row.steam_app_id),
+      name: row.name,
+      source: row.source as 'steam-api' | 'steam-local',
+      installed: row.installed === 1,
+      installDir: row.install_dir,
+      playtimeMinutes: Number(row.playtime_minutes ?? 0),
+      lastPlayedAt: row.last_played_at,
+      classification: row.classification as VnClassification,
+      confidence: row.confidence as ClassificationConfidence,
+      reason: row.reason ?? '',
+      manualOverride: (row.manual_override as ClassificationOverride) ?? null,
+      vndbId: row.vndb_id,
+      vndbTitle: row.vndb_title,
+      candidateMatches,
+      gameId: row.game_id,
+      available: row.available === 1,
+      syncedAt: row.synced_at
+    }
+  }
+
+  // ---- VNDB character cache ----
+
+  getCachedCharacters(vndbId: string): CharacterRecord[] {
+    const rows = this.db.all<{
+      vndb_id: string
+      character_id: string
+      position: number
+      role: string
+      spoiler: number
+      name: string
+      original_name: string | null
+      aliases_json: string
+      description: string | null
+      portrait_url: string | null
+      details_json: string
+      fetched_at: string
+    }>('SELECT * FROM vn_characters WHERE vndb_id = ? ORDER BY position ASC', vndbId)
+
+    return rows.map((row) => {
+      let aliases: string[] = []
+      try {
+        const parsed = JSON.parse(row.aliases_json)
+        if (Array.isArray(parsed)) aliases = parsed.filter((x): x is string => typeof x === 'string')
+      } catch {
+        aliases = []
+      }
+      let details: {
+        biographySegments?: CharacterBiographySegment[]
+        hasBiographySpoilers?: boolean
+        bloodType?: string | null
+        heightCm?: number | null
+        weightKg?: number | null
+        age?: number | null
+        birthday?: [number, number] | null
+        traits?: CharacterTrait[]
+      } = {}
+      try {
+        const parsed = JSON.parse(row.details_json)
+        if (typeof parsed === 'object' && parsed !== null) details = parsed
+      } catch {
+        details = {}
+      }
+      const biographySegments = Array.isArray(details.biographySegments)
+        ? details.biographySegments
+        : row.description
+          ? [{ text: row.description, spoiler: false }]
+          : []
+      return {
+        id: row.character_id,
+        vndbId: row.vndb_id,
+        name: row.name,
+        originalName: row.original_name,
+        aliases,
+        description: row.description,
+        biographySegments,
+        hasBiographySpoilers: Boolean(details.hasBiographySpoilers),
+        role: row.role as CharacterRole,
+        spoiler: (row.spoiler === 1 || row.spoiler === 2 ? row.spoiler : 0) as SpoilerLevel,
+        portraitUrl: row.portrait_url,
+        bloodType: details.bloodType ?? null,
+        heightCm: details.heightCm ?? null,
+        weightKg: details.weightKg ?? null,
+        age: details.age ?? null,
+        birthday: details.birthday ?? null,
+        traits: Array.isArray(details.traits) ? details.traits : [],
+        vndbUrl: `https://vndb.org/${row.character_id}`,
+        fetchedAt: row.fetched_at
+      }
+    })
+  }
+
+  saveCachedCharacters(vndbId: string, characters: readonly CharacterRecord[]): void {
+    this.db.transaction(() => {
+      this.db.run('DELETE FROM vn_characters WHERE vndb_id = ?', vndbId)
+      characters.forEach((char, position) => {
+        const details = {
+          biographySegments: char.biographySegments,
+          hasBiographySpoilers: char.hasBiographySpoilers,
+          bloodType: char.bloodType,
+          heightCm: char.heightCm,
+          weightKg: char.weightKg,
+          age: char.age,
+          birthday: char.birthday,
+          traits: char.traits
+        }
+        this.db.run(
+          `INSERT INTO vn_characters (
+             vndb_id, character_id, position, role, spoiler, name, original_name,
+             aliases_json, description, portrait_url, details_json, fetched_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          vndbId,
+          char.id,
+          position,
+          char.role,
+          char.spoiler,
+          char.name,
+          char.originalName,
+          JSON.stringify(char.aliases),
+          char.description,
+          char.portraitUrl,
+          JSON.stringify(details),
+          char.fetchedAt
+        )
+      })
+    })
   }
 }

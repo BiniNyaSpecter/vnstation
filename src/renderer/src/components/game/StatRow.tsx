@@ -23,6 +23,14 @@ export function StatRow({ game }: { game: Game }) {
           <span className="rating-box">{RATING_LABELS[game.contentRating]}</span>
         </dd>
       </div>
+      {game.librarySource !== 'manual' && (
+        <div className="stats__item">
+          <dt>Source</dt>
+          <dd>
+            <span className="rating-box">Steam</span>
+          </dd>
+        </div>
+      )}
     </dl>
   )
 }

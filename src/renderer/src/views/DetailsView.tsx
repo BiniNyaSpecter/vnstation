@@ -2,13 +2,16 @@ import { useEffect, useState, type ReactNode } from 'react'
 import type { VerifyResult } from '@shared/contracts'
 import type { PlayHistory, SessionTracking } from '@shared/launcher'
 import type { Game } from '@shared/types'
+import { CharacterSection } from '@renderer/components/game/CharacterSection'
 import { GameActions } from '@renderer/components/game/GameActions'
 import { StatRow } from '@renderer/components/game/StatRow'
 import { Badge } from '@renderer/components/ui/Badge'
 import { Button } from '@renderer/components/ui/Button'
 import { EmptyState } from '@renderer/components/ui/EmptyState'
 import { Icon } from '@renderer/components/ui/Icon'
+import { cx } from '@renderer/lib/cx'
 import { formatRelativeDate, formatReleaseDate, formatSessionDuration, RATING_LABELS } from '@renderer/lib/format'
+import { playSound } from '@renderer/lib/sound'
 import { services } from '@renderer/services'
 import { useAppStore } from '@renderer/state/appStore'
 
@@ -38,6 +41,7 @@ function DetailsContent({ game }: { game: Game }) {
   const running = useAppStore((state) => state.runningGames[game.id] ?? null)
   const adultMode = useAppStore((state) => state.prefs.showRestricted && state.prefs.metadataEnabled)
   const [check, setCheck] = useState<VerifyResult | null>(null)
+  const [activeTab, setActiveTab] = useState<'overview' | 'characters'>('overview')
 
   // Look for moved or deleted files each time the page opens or the saved paths change.
   useEffect(() => {
@@ -53,11 +57,13 @@ function DetailsContent({ game }: { game: Game }) {
   const needsDetails = adultMode && game.source?.provider === 'vndb' && !game.synopsis && game.contentRating === 'restricted'
 
   const problem =
-    check?.executableExists === false
-      ? 'VNStation can’t find this game’s executable. It may have been moved or deleted.'
-      : check?.workingDirectoryExists === false
-        ? 'This game’s working directory is missing.'
-        : null
+    !game.steamAvailable
+      ? 'This Steam entry was not found during the most recent Steam sync. It is kept in your library so you never lose notes or play history.'
+      : check?.executableExists === false
+        ? 'VNStation can’t find this game’s executable. It may have been moved or deleted.'
+        : check?.workingDirectoryExists === false
+          ? 'This game’s working directory is missing.'
+          : null
 
   return (
     <div className="stage details">
@@ -101,45 +107,100 @@ function DetailsContent({ game }: { game: Game }) {
           </div>
         </section>
 
-        <section className="details__content">
-          <div className="details__main">
-            <h2 className="section-title">About</h2>
-            <p className="details__synopsis">{game.synopsis ?? 'No description yet. Use “Find details” in the menu above to look it up on VNDB, or add your own in Edit game.'}</p>
-            {(game.genres.length > 0 || game.tags.length > 0) && (
-              <ul className="chips" aria-label="Genres and tags">
-                {game.genres.map((genre) => <li key={`g-${genre}`}><Badge tone="accent">{genre}</Badge></li>)}
-                {game.tags.map((tag) => <li key={`t-${tag}`}><Badge>{tag}</Badge></li>)}
-              </ul>
-            )}
-            <h2 className="section-title">Your notes</h2>
-            <NotesField key={game.id} game={game} />
-          </div>
+        <nav className="details__tabs" role="tablist" aria-label="Game details sections">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'overview'}
+            className={cx('details__tab', activeTab === 'overview' && 'is-active')}
+            data-nav=""
+            onClick={() => {
+              playSound('select')
+              setActiveTab('overview')
+            }}
+          >
+            Overview
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'characters'}
+            className={cx('details__tab', activeTab === 'characters' && 'is-active')}
+            data-nav=""
+            onClick={() => {
+              playSound('select')
+              setActiveTab('characters')
+            }}
+          >
+            Characters
+          </button>
+        </nav>
 
-          <aside className="details__side">
-            <InfoList
-              title="About this game"
-              note={game.source ? sourceLabel(game) : 'Added manually, so there are no downloaded details yet.'}
-              rows={[
-                ['Developer', game.developer ?? 'Unknown'],
-                ['Release date', formatReleaseDate(game.releaseDate)],
-                ['Original language', game.originalLanguage ?? 'Unknown'],
-                ['Available in', game.languages.length ? game.languages.join(', ') : 'Unknown'],
-                ['Rating', RATING_LABELS[game.contentRating]]
-              ]}
-            />
-            <InfoList
-              title="In your library"
-              note="Only you can change these."
-              rows={[
-                ['Executable', <span className="path" key="exe">{game.launch.executablePath}</span>],
-                ['Working directory', <span className="path" key="wd">{game.launch.workingDirectory}</span>],
-                ['Launch arguments', game.launch.arguments || 'None'],
-                ['Added', formatRelativeDate(game.addedAt)]
-              ]}
-            />
-            <PlayHistoryCard game={game} isRunning={Boolean(running)} />
-          </aside>
-        </section>
+        {activeTab === 'characters' ? (
+          <CharacterSection game={game} />
+        ) : (
+          <section className="details__content">
+            <div className="details__main">
+              <h2 className="section-title">About</h2>
+              <p className="details__synopsis">{game.synopsis ?? 'No description yet. Use “Find details” in the menu above to look it up on VNDB, or add your own in Edit game.'}</p>
+              {(game.genres.length > 0 || game.tags.length > 0) && (
+                <ul className="chips" aria-label="Genres and tags">
+                  {game.genres.map((genre) => <li key={`g-${genre}`}><Badge tone="accent">{genre}</Badge></li>)}
+                  {game.tags.map((tag) => <li key={`t-${tag}`}><Badge>{tag}</Badge></li>)}
+                </ul>
+              )}
+              <h2 className="section-title">Your notes</h2>
+              <NotesField key={game.id} game={game} />
+            </div>
+
+            <aside className="details__side">
+              <InfoList
+                title="About this game"
+                note={game.source ? sourceLabel(game) : 'Added manually, so there are no downloaded details yet.'}
+                rows={[
+                  ['Developer', game.developer ?? 'Unknown'],
+                  ['Release date', formatReleaseDate(game.releaseDate)],
+                  ['Original language', game.originalLanguage ?? 'Unknown'],
+                  ['Available in', game.languages.length ? game.languages.join(', ') : 'Unknown'],
+                  ['Rating', RATING_LABELS[game.contentRating]],
+                  ...(game.source?.provider === 'vndb' ? [['VNDB ID', game.source.externalId] as [string, ReactNode]] : [])
+                ]}
+              />
+              <InfoList
+                title="In your library"
+                note="Only you can change these."
+                rows={[
+                  [
+                    'Library source',
+                    game.librarySource === 'steam-api'
+                      ? 'Steam (Web API)'
+                      : game.librarySource === 'steam-local'
+                        ? 'Steam (Local install)'
+                        : 'Manual (.exe)'
+                  ],
+                  ...(game.steamAppId !== null
+                    ? [
+                        ['Steam AppID', String(game.steamAppId)] as [string, ReactNode],
+                        [
+                          'Steam status',
+                          !game.steamAvailable
+                            ? 'Unavailable in latest sync'
+                            : game.steamInstalled
+                              ? 'Installed locally'
+                              : 'Owned on Steam (not installed)'
+                        ] as [string, ReactNode]
+                      ]
+                    : []),
+                  ['Launch target', <span className="path" key="exe">{game.launch.executablePath}</span>],
+                  ['Working directory', <span className="path" key="wd">{game.launch.workingDirectory || 'Managed by Steam'}</span>],
+                  ['Launch arguments', game.launch.arguments || 'None'],
+                  ['Added', formatRelativeDate(game.addedAt)]
+                ]}
+              />
+              <PlayHistoryCard game={game} isRunning={Boolean(running)} />
+            </aside>
+          </section>
+        )}
       </div>
     </div>
   )

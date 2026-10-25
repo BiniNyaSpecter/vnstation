@@ -21,6 +21,8 @@ export type LaunchFailureReason =
   | 'already-running'
   | 'missing-executable'
   | 'missing-working-directory'
+  /** Steam client is not available on this computer when launching a Steam entry. */
+  | 'steam-unavailable'
   /** Windows refused to start the file: usually it asks for administrator rights. */
   | 'needs-admin'
   | 'failed'

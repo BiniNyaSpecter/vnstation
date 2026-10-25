@@ -33,7 +33,19 @@ export const IPC = {
     chooseArtwork: 'metadata:choose-artwork',
     resetArtwork: 'metadata:reset-artwork',
     cacheStats: 'metadata:cache-stats',
-    clearCache: 'metadata:clear-cache'
+    clearCache: 'metadata:clear-cache',
+    getCharacters: 'metadata:get-characters',
+    openExternalVndb: 'metadata:open-external-vndb'
+  },
+  steam: {
+    getStatus: 'steam:get-status',
+    connect: 'steam:connect',
+    disconnect: 'steam:disconnect',
+    sync: 'steam:sync',
+    listCatalog: 'steam:list-catalog',
+    setClassificationOverride: 'steam:set-classification-override',
+    linkCatalogVndb: 'steam:link-catalog-vndb',
+    cleanupUnavailable: 'steam:cleanup-unavailable'
   },
   settings: {
     load: 'settings:load',

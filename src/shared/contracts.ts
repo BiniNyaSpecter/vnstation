@@ -1,5 +1,14 @@
+import type { CharacterListResult } from './characters'
 import type { ArtworkKind, MetadataSearchResult } from './metadata'
 import type { LauncherEvent, LaunchOptions, LaunchResult, PlayHistory, RunningGame } from './launcher'
+import type {
+  ClassificationOverride,
+  SteamCatalogItem,
+  SteamConnectInput,
+  SteamStatus,
+  SteamSyncOptions,
+  SteamSyncSummary
+} from './steam'
 import type { Collection, GameEntry, LaunchConfig, Preferences, UserFields } from './types'
 
 /**
@@ -81,6 +90,30 @@ export interface MetadataApi {
   cacheStats(): Promise<{ files: number; bytes: number }>
   /** Deletes downloaded provider artwork (not images the user chose themselves). */
   clearCache(): Promise<void>
+  /** Fetches or returns cached VNDB characters for a linked game. */
+  getCharacters(gameId: string, options: { allowAdult: boolean; force?: boolean }): Promise<CharacterListResult>
+  /** Opens a verified https://vndb.org/ page in the default external browser. */
+  openExternalVndb(vndbUrl: string): Promise<boolean>
+}
+
+export interface SteamApi {
+  getStatus(): Promise<SteamStatus>
+  connect(input: SteamConnectInput): Promise<SteamStatus>
+  disconnect(): Promise<SteamStatus>
+  sync(options: SteamSyncOptions): Promise<SteamSyncSummary>
+  listCatalog(): Promise<SteamCatalogItem[]>
+  setClassificationOverride(
+    steamAppId: number,
+    override: ClassificationOverride,
+    options: { allowAdult: boolean }
+  ): Promise<SteamCatalogItem>
+  linkCatalogVndb(
+    steamAppId: number,
+    externalId: string,
+    options: { allowAdult: boolean }
+  ): Promise<SteamCatalogItem>
+  /** Removes library entries for Steam games marked unavailable, returning the number removed. */
+  cleanupUnavailable(): Promise<number>
 }
 
 export interface PreferencesRepository {

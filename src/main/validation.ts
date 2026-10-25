@@ -1,8 +1,11 @@
 import type { CollectionInput, GameEntryPatch, NewGameDraft } from '@shared/contracts'
 import type { LaunchOptions } from '@shared/launcher'
 import { ART_URL_PREFIX, type ArtworkKind } from '@shared/metadata'
+import type { ClassificationOverride, SteamConnectInput, SteamSyncOptions } from '@shared/steam'
 import type { UserFields } from '@shared/types'
 import { UserFacingError } from './errors'
+
+export const isSteamLaunchUri = (value: string): boolean => /^steam:\/\/rungameid\/[1-9]\d{0,9}$/.test(value)
 
 /**
  * Everything that crosses the IPC boundary is untrusted. These parsers accept only
@@ -159,5 +162,59 @@ export function parseLaunchOptions(value: unknown): LaunchOptions {
 
 export function parseHistoryLimit(value: unknown): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 100) return invalid('request')
+  return value
+}
+
+export function parseCharactersOptions(value: unknown): { allowAdult: boolean; force?: boolean } {
+  if (!isRecord(value) || typeof value.allowAdult !== 'boolean') return invalid('request')
+  if ('force' in value && value.force !== undefined && typeof value.force !== 'boolean') return invalid('request')
+  return { allowAdult: value.allowAdult, force: value.force === true }
+}
+
+export function parseVndbUrl(value: unknown): string {
+  const raw = text(value, LIMITS.url, 'VNDB URL').trim()
+  try {
+    const url = new URL(raw)
+    if (url.protocol !== 'https:' || url.hostname !== 'vndb.org') return invalid('VNDB URL')
+    if (!/^\/[cv]\d{1,9}$/.test(url.pathname)) return invalid('VNDB URL')
+    return url.toString()
+  } catch {
+    return invalid('VNDB URL')
+  }
+}
+
+export function parseSteamConnectInput(value: unknown): SteamConnectInput {
+  if (!isRecord(value)) return invalid('Steam configuration')
+  if (value.mode !== 'api' && value.mode !== 'local') return invalid('Steam connection mode')
+  return {
+    mode: value.mode,
+    steamIdOrVanity: 'steamIdOrVanity' in value && value.steamIdOrVanity !== undefined
+      ? text(value.steamIdOrVanity, LIMITS.short, 'Steam ID')
+      : undefined,
+    apiKey: 'apiKey' in value && value.apiKey !== undefined
+      ? text(value.apiKey, LIMITS.short, 'Steam Web API key')
+      : undefined,
+    localSteamPath: 'localSteamPath' in value && value.localSteamPath !== undefined
+      ? text(value.localSteamPath, LIMITS.path, 'Steam folder path')
+      : undefined
+  }
+}
+
+export function parseSteamSyncOptions(value: unknown): SteamSyncOptions {
+  if (!isRecord(value) || typeof value.allowAdult !== 'boolean') return invalid('sync request')
+  return { allowAdult: value.allowAdult }
+}
+
+export function parseSteamAppId(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0 || value > 2_000_000_000) {
+    return invalid('Steam AppID')
+  }
+  return value
+}
+
+export function parseClassificationOverride(value: unknown): ClassificationOverride {
+  if (value !== 'include' && value !== 'exclude' && value !== null) {
+    return invalid('classification override')
+  }
   return value
 }

@@ -143,10 +143,63 @@ ALTER TABLE games ADD COLUMN playtime_seconds INTEGER NOT NULL DEFAULT 0 CHECK (
 UPDATE games SET playtime_seconds = playtime_minutes * 60;
 `
 
+const steamAndCharacters = `
+ALTER TABLE games ADD COLUMN library_source TEXT NOT NULL DEFAULT 'manual'
+  CHECK (library_source IN ('manual', 'steam-api', 'steam-local'));
+ALTER TABLE games ADD COLUMN steam_app_id INTEGER;
+ALTER TABLE games ADD COLUMN steam_installed INTEGER
+  CHECK (steam_installed IS NULL OR steam_installed IN (0, 1));
+ALTER TABLE games ADD COLUMN steam_available INTEGER NOT NULL DEFAULT 1
+  CHECK (steam_available IN (0, 1));
+CREATE UNIQUE INDEX idx_games_steam_app_id ON games (steam_app_id) WHERE steam_app_id IS NOT NULL;
+
+-- Full Steam evaluation catalog so non-VN games stay excluded across syncs,
+-- uncertain matches stay isolated in the review queue, and manual overrides persist.
+CREATE TABLE steam_catalog (
+  steam_app_id      INTEGER PRIMARY KEY,
+  name              TEXT NOT NULL,
+  source            TEXT NOT NULL CHECK (source IN ('steam-api', 'steam-local')),
+  installed         INTEGER NOT NULL DEFAULT 0 CHECK (installed IN (0, 1)),
+  install_dir       TEXT,
+  playtime_minutes  INTEGER NOT NULL DEFAULT 0 CHECK (playtime_minutes >= 0),
+  last_played_at    TEXT,
+  classification    TEXT NOT NULL CHECK (classification IN ('vn', 'review', 'excluded')),
+  confidence        TEXT NOT NULL CHECK (confidence IN ('high', 'medium', 'low', 'manual')),
+  reason            TEXT NOT NULL DEFAULT '',
+  manual_override   TEXT CHECK (manual_override IS NULL OR manual_override IN ('include', 'exclude')),
+  vndb_id           TEXT,
+  vndb_title        TEXT,
+  candidates_json   TEXT NOT NULL DEFAULT '[]',
+  game_id           TEXT REFERENCES games (id) ON DELETE SET NULL,
+  available         INTEGER NOT NULL DEFAULT 1 CHECK (available IN (0, 1)),
+  synced_at         TEXT NOT NULL
+);
+CREATE INDEX idx_steam_catalog_classification ON steam_catalog (classification);
+
+-- Cached VNDB character profiles per visual novel (vndb_id = "v17", etc.).
+CREATE TABLE vn_characters (
+  vndb_id        TEXT NOT NULL,
+  character_id   TEXT NOT NULL,
+  position       INTEGER NOT NULL,
+  role           TEXT NOT NULL CHECK (role IN ('main', 'primary', 'side', 'appears')),
+  spoiler        INTEGER NOT NULL DEFAULT 0 CHECK (spoiler IN (0, 1, 2)),
+  name           TEXT NOT NULL,
+  original_name  TEXT,
+  aliases_json   TEXT NOT NULL DEFAULT '[]',
+  description    TEXT,
+  portrait_url   TEXT,
+  details_json   TEXT NOT NULL DEFAULT '{}',
+  fetched_at     TEXT NOT NULL,
+  PRIMARY KEY (vndb_id, character_id)
+);
+CREATE INDEX idx_vn_characters_vndb ON vn_characters (vndb_id, position);
+`
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'initial-library', sql: initialLibrary },
   { version: 2, name: 'metadata-support', sql: metadataSupport },
-  { version: 3, name: 'play-sessions', sql: playSessions }
+  { version: 3, name: 'play-sessions', sql: playSessions },
+  { version: 4, name: 'steam-and-characters', sql: steamAndCharacters }
 ]
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version

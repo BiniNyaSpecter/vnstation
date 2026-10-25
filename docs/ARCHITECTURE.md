@@ -164,6 +164,25 @@ renderer --launch(gameId, opts)--> ipc --> ProcessGameLauncher --> spawn(exe, ar
 - **Gamepad:** `renderer/src/lib/gamepad.ts` polls W3C standard gamepads (`navigator.getGamepads`) while the window is visible and focused, feeding the same spatial navigation (`moveFocus`) as the keyboard. Polling pauses and resyncs whenever the window loses focus so controller input inside a running visual novel never triggers background actions in VNStation.
 - **Backdrop crossfades:** `Backdrop.tsx` pre-decodes incoming background images off the main thread (`HTMLImageElement.decode()`) before mounting the fade-in layer, and applies `--backdrop-strength` to the layer stack container rather than individual `<img>` elements so outgoing and incoming backgrounds never bleed through each other.
 
+## Steam integration & VNDB character compendium (Milestone 6)
+
+- **Schema (Migration 4 — `steam-and-characters`):**
+  - Adds `library_source` (`'manual' | 'steam-api' | 'steam-local'`), `steam_app_id` (unique partial index), `steam_installed`, and `steam_available` to `games`.
+  - Adds `steam_catalog` to persist every evaluated Steam entry (`classification`: `'vn' | 'review' | 'excluded'`, `confidence`, `manual_override`: `'include' | 'exclude' | null`, `vndb_id`, and `candidates_json`).
+  - Adds `vn_characters` to cache VNDB character records (`role`, `spoiler`, `aliases_json`, `description`, `portrait_url`, and `details_json` containing segmented biography blocks and grouped traits) per `vndb_id`.
+- **Steam synchronization (`src/main/steam/`):**
+  - Supports **Approach A (Steam Web API)** (`ISteamUser/ResolveVanityURL/v1`, `ISteamUser/GetPlayerSummaries/v2`, `IPlayerService/GetOwnedGames/v1`) with the user's API key encrypted at rest via Electron's `safeStorage` (`steam.secret` in SQLite) and never returned to the renderer.
+  - Supports **Approach B (Local Steam installation)** by parsing `steamapps/libraryfolders.vdf` and `steamapps/appmanifest_*.acf` across all configured Steam library folders without requiring an API key or public profile.
+  - **Visual Novel Classifier (`src/main/steam/classifier.ts`):**
+    1. Manual override (`include` / `exclude`) always wins and persists across syncs.
+    2. Exact Steam AppID mapping via VNDB Kana v2 `POST /release` (`filters: ["extlink", "=", ["steam", appId]]`).
+    3. Official/alternative VNDB title matching and normalized title matching (stripping edition/remaster suffixes).
+    4. Uncertain/multi-match candidates are isolated in the `review` queue so ambiguous matches never silently pollute the main library; non-VN games are marked `excluded`.
+- **VNDB Character Compendium (`src/main/metadata/vndb.ts`, `CharacterSection.tsx`):**
+  - Queries `POST /character` (`filters: ["vn", "=", ["id", "=", vndbId]]`) and filters each character's `vns` list to the current `vndbId` so `role` and `spoiler` level always reflect the selected visual novel.
+  - Character portraits pass through `isImageSafe` under the active `ContentPolicy` and are cached locally in `artwork/vndb/c<id>-portrait.<ext>`.
+  - `parseCharacterBiography` strips non-spoiler BBCode while splitting `[spoiler]...[/spoiler]` into segments so spoiler characters, spoiler traits, and spoiler biography blocks stay hidden by default until explicitly revealed.
+
 ## Known limitations
 
 - VNDB has tags rather than genres, so the Genre filter lists genres and tags together.

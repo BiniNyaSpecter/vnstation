@@ -11,5 +11,7 @@ export const unavailableMetadata: MetadataApi = {
   chooseArtwork: unavailable,
   resetArtwork: unavailable,
   cacheStats: unavailable,
-  clearCache: unavailable
+  clearCache: unavailable,
+  getCharacters: unavailable,
+  openExternalVndb: unavailable
 }

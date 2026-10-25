@@ -13,7 +13,8 @@ const state = () => appStore.getState()
 const unavailable = (): Promise<never> => Promise.reject(new Error('offline'))
 const fakeMetadata = (overrides: Partial<MetadataApi> = {}): MetadataApi => ({
   search: unavailable, apply: unavailable, refresh: unavailable, unlink: unavailable,
-  chooseArtwork: unavailable, resetArtwork: unavailable, cacheStats: unavailable, clearCache: unavailable, ...overrides
+  chooseArtwork: unavailable, resetArtwork: unavailable, cacheStats: unavailable, clearCache: unavailable,
+  getCharacters: unavailable, openExternalVndb: unavailable, ...overrides
 })
 
 class MemoryPreferences implements PreferencesRepository {

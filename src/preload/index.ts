@@ -44,7 +44,21 @@ const api: VNStationApi = {
     chooseArtwork: (gameId, kind) => call(IPC.metadata.chooseArtwork, gameId, kind),
     resetArtwork: (gameId, kind) => call(IPC.metadata.resetArtwork, gameId, kind),
     cacheStats: () => call(IPC.metadata.cacheStats),
-    clearCache: () => call(IPC.metadata.clearCache)
+    clearCache: () => call(IPC.metadata.clearCache),
+    getCharacters: (gameId, options) => call(IPC.metadata.getCharacters, gameId, options),
+    openExternalVndb: (vndbUrl) => call(IPC.metadata.openExternalVndb, vndbUrl)
+  },
+  steam: {
+    getStatus: () => call(IPC.steam.getStatus),
+    connect: (input) => call(IPC.steam.connect, input),
+    disconnect: () => call(IPC.steam.disconnect),
+    sync: (options) => call(IPC.steam.sync, options),
+    listCatalog: () => call(IPC.steam.listCatalog),
+    setClassificationOverride: (appId, override, options) =>
+      call(IPC.steam.setClassificationOverride, appId, override, options),
+    linkCatalogVndb: (appId, externalId, options) =>
+      call(IPC.steam.linkCatalogVndb, appId, externalId, options),
+    cleanupUnavailable: () => call(IPC.steam.cleanupUnavailable)
   },
   settings: {
     load: () => call(IPC.settings.load),

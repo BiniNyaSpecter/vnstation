@@ -1,4 +1,4 @@
-import type { GameLauncher, LibraryRepository, MetadataApi, PreferencesRepository } from './contracts'
+import type { GameLauncher, LibraryRepository, MetadataApi, PreferencesRepository, SteamApi } from './contracts'
 
 /** The only API surface the renderer can reach (exposed as `window.vnstation`). */
 
@@ -57,6 +57,7 @@ export interface VNStationApi {
   }
   library: LibraryRepository
   metadata: MetadataApi
+  steam: SteamApi
   settings: PreferencesRepository
   launcher: GameLauncher
 }

@@ -60,6 +60,7 @@ interface AppState {
 
 interface AppActions {
   init: () => Promise<void>
+  reloadLibrary: () => Promise<void>
   /** Top-level navigation (rail). Resets the back stack. */
   navigate: (route: Route) => void
   /** Cycles through the top-level categories (LB / RB on a controller, [ / ] on a keyboard). */
@@ -230,6 +231,14 @@ export const appStore = createStore<AppStore>((set, get) => {
         })
       } catch {
         set({ status: 'error' })
+      }
+    },
+
+    async reloadLibrary() {
+      try {
+        await reload()
+      } catch (error) {
+        fail(error, 'Could not refresh the library.')
       }
     },
 

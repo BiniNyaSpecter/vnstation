@@ -1,10 +1,11 @@
-import type { GameLauncher, LibraryRepository, MetadataApi, PreferencesRepository } from '@shared/contracts'
+import type { GameLauncher, LibraryRepository, MetadataApi, PreferencesRepository, SteamApi } from '@shared/contracts'
 import { createSampleSnapshot } from '@shared/sampleLibrary'
 import { LocalStoragePreferences } from '@renderer/lib/prefs'
 import { bridge } from './bridge'
 import { InMemoryLibraryRepository } from './inMemoryLibraryRepository'
 import { StubGameLauncher } from './stubGameLauncher'
 import { unavailableMetadata } from './unavailableMetadata'
+import { unavailableSteam } from './unavailableSteam'
 
 /**
  * Composition root for side-effectful services. In Electron the library, metadata,
@@ -14,13 +15,21 @@ import { unavailableMetadata } from './unavailableMetadata'
 export const services: {
   library: LibraryRepository
   metadata: MetadataApi
+  steam: SteamApi
   launcher: GameLauncher
   preferences: PreferencesRepository
 } = bridge
-  ? { library: bridge.library, metadata: bridge.metadata, launcher: bridge.launcher, preferences: bridge.settings }
+  ? {
+      library: bridge.library,
+      metadata: bridge.metadata,
+      steam: bridge.steam,
+      launcher: bridge.launcher,
+      preferences: bridge.settings
+    }
   : {
       library: new InMemoryLibraryRepository(createSampleSnapshot()),
       metadata: unavailableMetadata,
+      steam: unavailableSteam,
       launcher: new StubGameLauncher(),
       preferences: new LocalStoragePreferences()
     }

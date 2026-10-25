@@ -60,10 +60,10 @@ export class ArtworkCache {
     return `${base}.${type.ext}`
   }
 
-  /** Downloads a provider image and returns its local art URL. `name` looks like "v17-cover". */
+  /** Downloads a provider image and returns its local art URL. `name` looks like "v17-cover" or "c17-portrait". */
   async downloadProviderImage(remoteUrl: string, name: string): Promise<string> {
     if (!isVndbImageUrl(remoteUrl)) throw new Error('Refusing to download an image from an unexpected address.')
-    if (!/^v\d{1,9}-(cover|background)$/.test(name)) throw new Error('Unexpected artwork name.')
+    if (!/^(?:v\d{1,9}-(cover|background)|c\d{1,9}-portrait)$/.test(name)) throw new Error('Unexpected artwork name.')
 
     const response = await this.fetcher(remoteUrl, { signal: AbortSignal.timeout(30_000) })
     if (!response.ok) throw new Error(`Image download failed (${response.status}).`)

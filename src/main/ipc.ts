@@ -1,7 +1,7 @@
-import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent, type OpenDialogOptions } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent, type OpenDialogOptions } from 'electron'
 import { IPC } from '@shared/ipc'
 import type { AppInfo, PickExecutableResult, PickFolderResult, ScanFolderResult } from '@shared/api'
-import type { GameLauncher, LibraryRepository, PreferencesRepository } from '@shared/contracts'
+import type { GameLauncher, LibraryRepository, PreferencesRepository, SteamApi } from '@shared/contracts'
 import { InvalidExecutableError, validateDirectory, validateExecutable } from './executables'
 import { scanFolderForExecutables } from './folderScanner'
 import { toResult } from './ipcResult'
@@ -9,12 +9,18 @@ import type { MetadataService } from './metadata/metadataService'
 import {
   parseApplyOptions,
   parseArtworkKind,
+  parseCharactersOptions,
+  parseClassificationOverride,
   parseExternalId,
   parseHistoryLimit,
   parseId,
   parseLaunchOptions,
   parseRefreshOptions,
-  parseSearchOptions
+  parseSearchOptions,
+  parseSteamAppId,
+  parseSteamConnectInput,
+  parseSteamSyncOptions,
+  parseVndbUrl
 } from './validation'
 import type { UrlGuard } from './security'
 
@@ -23,6 +29,7 @@ export interface IpcDependencies {
   library: LibraryRepository
   settings: PreferencesRepository
   metadata: MetadataService
+  steam?: SteamApi
   launcher: GameLauncher
   databasePath: string
 }
@@ -90,7 +97,7 @@ async function scanFolder(event: IpcMainInvokeEvent): Promise<ScanFolderResult> 
 }
 
 /** Registers every allowlisted IPC handler. Add new channels to `shared/ipc.ts` first. */
-export function registerIpcHandlers({ isTrustedUrl, library, settings, metadata, launcher, databasePath }: IpcDependencies): void {
+export function registerIpcHandlers({ isTrustedUrl, library, settings, metadata, steam, launcher, databasePath }: IpcDependencies): void {
   /** Registers one channel: checks the sender, runs the handler, returns the envelope. */
   const handle = <Args extends unknown[], R>(
     channel: string,
@@ -140,6 +147,29 @@ export function registerIpcHandlers({ isTrustedUrl, library, settings, metadata,
   handle(IPC.metadata.resetArtwork, (_e, gameId: never, kind: never) => metadata.resetArtwork(parseId(gameId, 'game'), parseArtworkKind(kind)))
   handle(IPC.metadata.cacheStats, () => metadata.cacheStats())
   handle(IPC.metadata.clearCache, () => metadata.clearCache())
+  handle(IPC.metadata.getCharacters, (_e, gameId: never, options: never) =>
+    metadata.getCharacters(parseId(gameId, 'game'), parseCharactersOptions(options))
+  )
+  handle(IPC.metadata.openExternalVndb, async (_e, vndbUrl: never) => {
+    const safeUrl = parseVndbUrl(vndbUrl)
+    await shell.openExternal(safeUrl)
+    return true
+  })
+
+  if (steam) {
+    handle(IPC.steam.getStatus, () => steam.getStatus())
+    handle(IPC.steam.connect, (_e, input: never) => steam.connect(parseSteamConnectInput(input)))
+    handle(IPC.steam.disconnect, () => steam.disconnect())
+    handle(IPC.steam.sync, (_e, options: never) => steam.sync(parseSteamSyncOptions(options)))
+    handle(IPC.steam.listCatalog, () => steam.listCatalog())
+    handle(IPC.steam.setClassificationOverride, (_e, appId: never, override: never, options: never) =>
+      steam.setClassificationOverride(parseSteamAppId(appId), parseClassificationOverride(override), parseRefreshOptions(options))
+    )
+    handle(IPC.steam.linkCatalogVndb, (_e, appId: never, externalId: never, options: never) =>
+      steam.linkCatalogVndb(parseSteamAppId(appId), parseExternalId(externalId), parseRefreshOptions(options))
+    )
+    handle(IPC.steam.cleanupUnavailable, () => steam.cleanupUnavailable())
+  }
 
   handle(IPC.settings.load, () => settings.load())
   handle(IPC.settings.save, (_e, prefs: never) => settings.save(prefs))

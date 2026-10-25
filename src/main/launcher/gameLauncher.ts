@@ -12,7 +12,7 @@ import {
 } from '@shared/launcher'
 import type { LibraryStore } from '../db/libraryStore'
 import { validateDirectory, validateExecutable } from '../executables'
-import { parseId } from '../validation'
+import { isSteamLaunchUri, parseId } from '../validation'
 import { splitArguments } from './args'
 import type { FolderProbe } from './folderWatcher'
 
@@ -47,6 +47,8 @@ export interface ProcessGameLauncherOptions {
   spawnProcess?: ProcessSpawner
   probeFolder?: FolderProbe
   revealInFolder?: (executablePath: string, workingDirectory: string) => Promise<boolean> | boolean
+  /** Launches a Steam game via `steam://rungameid/<appId>`. Returns true if Steam accepted the launch. */
+  launchSteamUri?: (steamUri: string, appId: number) => Promise<boolean> | boolean
   window?: LauncherWindowController
   now?: () => Date
   /** How often to check whether a folder-tracked game is still running. */
@@ -99,6 +101,7 @@ export class ProcessGameLauncher implements GameLauncher {
   private readonly spawnProcess: ProcessSpawner
   private readonly probeFolder: FolderProbe
   private readonly revealInFolder?: (executablePath: string, workingDirectory: string) => Promise<boolean> | boolean
+  private readonly launchSteamUri?: (steamUri: string, appId: number) => Promise<boolean> | boolean
   private readonly window?: LauncherWindowController
   private readonly now: () => Date
   private readonly folderPollMs: number
@@ -112,6 +115,7 @@ export class ProcessGameLauncher implements GameLauncher {
     this.spawnProcess = options.spawnProcess ?? defaultSpawner
     this.probeFolder = options.probeFolder ?? (async () => false)
     this.revealInFolder = options.revealInFolder
+    this.launchSteamUri = options.launchSteamUri
     this.window = options.window
     this.now = options.now ?? (() => new Date())
     this.folderPollMs = options.folderPollMs ?? 5_000
@@ -140,6 +144,10 @@ export class ProcessGameLauncher implements GameLauncher {
 
     this.starting.add(gameId)
     try {
+      if (isSteamLaunchUri(entry.launch.executablePath)) {
+        return await this.launchViaSteam(gameId, entry.launch.executablePath, entry.launch.workingDirectory, options)
+      }
+
       const verifiedExe = await validateExecutable(entry.launch.executablePath).catch(() => null)
       if (!verifiedExe) {
         return {
@@ -166,6 +174,100 @@ export class ProcessGameLauncher implements GameLauncher {
     } finally {
       this.starting.delete(gameId)
     }
+  }
+
+  private async launchViaSteam(
+    gameId: string,
+    steamUri: string,
+    workingDirectory: string,
+    options: LaunchOptions
+  ): Promise<LaunchResult> {
+    const appId = Number(steamUri.slice('steam://rungameid/'.length))
+    if (!this.launchSteamUri || !Number.isInteger(appId) || appId <= 0) {
+      return {
+        ok: false,
+        reason: 'steam-unavailable',
+        message: 'Steam launching is not available on this computer. Install the Steam desktop app or pick a local executable in Edit game.'
+      }
+    }
+
+    let launched = false
+    try {
+      launched = Boolean(await this.launchSteamUri(steamUri, appId))
+    } catch {
+      launched = false
+    }
+
+    if (!launched) {
+      return {
+        ok: false,
+        reason: 'steam-unavailable',
+        message: 'Steam could not start this game. Make sure the Steam desktop app is installed and signed in, or pick a local executable in Edit game.'
+      }
+    }
+
+    const startedDate = this.now()
+    const startedAt = startedDate.toISOString()
+    const { sessionId, entry } = this.store.startPlaySession(gameId, startedAt)
+
+    const verifiedDir = workingDirectory ? await validateDirectory(workingDirectory).catch(() => null) : null
+    const watchFolders = verifiedDir ? [verifiedDir] : []
+
+    if (options.minimizeOnLaunch) {
+      try {
+        this.window?.minimize()
+      } catch {
+        // Best-effort window state change.
+      }
+    }
+
+    if (watchFolders.length > 0 && (await this.isAnyWatchFolderActive(watchFolders))) {
+      const session: ActiveSession = {
+        gameId,
+        sessionId,
+        startedAt,
+        startedAtMs: startedDate.getTime(),
+        mode: 'folder',
+        restoreOnExit: options.restoreOnExit,
+        watchFolders,
+        pollTimer: null,
+        polling: false,
+        closed: false
+      }
+      this.active.set(gameId, session)
+      this.emit({
+        type: 'started',
+        game: { gameId, startedAt, mode: 'folder' },
+        entry
+      })
+      session.pollTimer = setInterval(() => {
+        void this.pollFolderSession(session, 0)
+      }, this.folderPollMs)
+      return { ok: true, startedAt }
+    }
+
+    // Steam URI handoff: record the launch session immediately so lastPlayedAt and session history stay accurate.
+    const { session: recorded, entry: finishedEntry } = this.store.finishPlaySession(sessionId, startedAt, 0, 'handoff')
+    this.emit({
+      type: 'started',
+      game: { gameId, startedAt, mode: 'process' },
+      entry: finishedEntry ?? entry
+    })
+    this.emit({
+      type: 'stopped',
+      gameId,
+      session: recorded ?? {
+        id: sessionId,
+        gameId,
+        startedAt,
+        endedAt: startedAt,
+        seconds: 0,
+        tracking: 'handoff'
+      },
+      entry: finishedEntry ?? entry,
+      exitCode: 0
+    })
+    return { ok: true, startedAt }
   }
 
   async running(): Promise<RunningGame[]> {

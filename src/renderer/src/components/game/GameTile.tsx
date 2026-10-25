@@ -64,6 +64,11 @@ export function GameTile({ game, selected, tabbable, labelMode = 'selected', onS
             18+
           </span>
         )}
+        {game.librarySource !== 'manual' && !running && (
+          <span className="tile__source" title={game.librarySource === 'steam-api' ? 'Imported from Steam Web API' : 'Imported from local Steam library'}>
+            Steam
+          </span>
+        )}
         {game.favorite && (
           <span className="tile__fav" aria-hidden="true">
             <Icon name="heartFilled" size={13} />

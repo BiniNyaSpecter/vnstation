@@ -34,7 +34,8 @@ export const DEFAULT_PREFS: Preferences = {
   minimizeOnLaunch: false,
   restoreOnExit: true,
   gamepadEnabled: true,
-  gamepadConfirm: 'south'
+  gamepadConfirm: 'south',
+  spoilerPreference: 'hide'
 }
 
 const SORT_KEYS: readonly SortKey[] = ['title', 'releaseDate', 'developer', 'recentlyAdded', 'recentlyPlayed']
@@ -74,7 +75,11 @@ export function sanitizePrefs(raw: unknown): Preferences {
     minimizeOnLaunch: typeof input.minimizeOnLaunch === 'boolean' ? input.minimizeOnLaunch : DEFAULT_PREFS.minimizeOnLaunch,
     restoreOnExit: typeof input.restoreOnExit === 'boolean' ? input.restoreOnExit : DEFAULT_PREFS.restoreOnExit,
     gamepadEnabled: typeof input.gamepadEnabled === 'boolean' ? input.gamepadEnabled : DEFAULT_PREFS.gamepadEnabled,
-    gamepadConfirm: input.gamepadConfirm === 'east' ? 'east' : 'south'
+    gamepadConfirm: input.gamepadConfirm === 'east' ? 'east' : 'south',
+    spoilerPreference:
+      input.spoilerPreference === 'hide' || input.spoilerPreference === 'minor' || input.spoilerPreference === 'all'
+        ? input.spoilerPreference
+        : DEFAULT_PREFS.spoilerPreference
   }
 }
 

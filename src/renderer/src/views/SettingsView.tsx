@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { AccentId, GamepadConfirm, MotionMode, NavLayout, SortKey, ThemeId, TitleFont } from '@shared/types'
+import { SteamSection } from '@renderer/components/settings/SteamSection'
 import { Button } from '@renderer/components/ui/Button'
 import { Select } from '@renderer/components/ui/Select'
 import { Switch } from '@renderer/components/ui/Switch'
@@ -191,6 +192,8 @@ export function SettingsView() {
             )}
           </Row>
         </Section>
+
+        <SteamSection />
 
         <Section title="Launching">
           <Row label="Minimize VNStation when a game starts" description="Gets the library window out of the way as soon as the executable launches.">

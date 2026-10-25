@@ -1,3 +1,4 @@
+import type { CharacterListResult, CharacterRecord } from '@shared/characters'
 import type { ApplyMetadataOptions } from '@shared/contracts'
 import type { ArtworkKind, MetadataCandidate, MetadataDetails, MetadataSearchResult } from '@shared/metadata'
 import type { GameEntry, ProviderMetadata } from '@shared/types'
@@ -6,12 +7,13 @@ import type { MetadataCache } from '../db/metadataCache'
 import { UserFacingError } from '../errors'
 import type { ArtworkCache } from './artworkCache'
 import type { MetadataProvider } from './provider'
-import { VNDB_ID, type ContentPolicy } from './vndb'
+import { VNDB_ID, type ContentPolicy, type SteamVndbReleaseMatch } from './vndb'
 
 const SEARCH_TTL_MS = 24 * 60 * 60_000
 const DETAILS_TTL_MS = 7 * 24 * 60 * 60_000
 
-type Store = Pick<LibraryStore, 'getEntry' | 'setProviderMetadata' | 'updateGame' | 'clearProviderArtworkUrls'>
+type Store = Pick<LibraryStore, 'getEntry' | 'setProviderMetadata' | 'updateGame' | 'clearProviderArtworkUrls'> &
+  Partial<Pick<LibraryStore, 'getCachedCharacters' | 'saveCachedCharacters'>>
 
 export function normalizeQuery(query: unknown): string {
   if (typeof query !== 'string' || query.includes('\0')) throw new UserFacingError('Type a title to search for.')
@@ -87,6 +89,85 @@ export class MetadataService {
   async clearCache(): Promise<void> {
     await this.deps.art.clearProviderCache()
     await this.deps.store.clearProviderArtworkUrls()
+  }
+
+  async getCharacters(gameId: string, options: { allowAdult: boolean; force?: boolean }): Promise<CharacterListResult> {
+    const entry = this.deps.store.getEntry(gameId)
+    const source = entry.provider.source
+    if (!source || source.provider !== 'vndb' || !VNDB_ID.test(source.externalId)) {
+      throw new UserFacingError('This game is not linked to VNDB yet. Use “Find details” first to load its character cast.')
+    }
+
+    const vndbId = source.externalId
+    const policy: ContentPolicy = options.allowAdult ? 'adult' : 'family'
+    const cacheKey = `vndb:characters:v1:${policy}:${vndbId}`
+    const existing = this.deps.store.getCachedCharacters?.(vndbId) ?? []
+    const cachedMeta = options.force ? null : this.deps.cache.get<{ fetchedAt: string; count: number }>(cacheKey, DETAILS_TTL_MS)
+
+    if (
+      cachedMeta !== null &&
+      existing.length === cachedMeta.count &&
+      existing.every((c) => !c.portraitUrl || c.portraitUrl.startsWith('vnstation-art://'))
+    ) {
+      return {
+        vndbId,
+        characters: existing,
+        fromCache: true,
+        fetchedAt: existing[0]?.fetchedAt ?? cachedMeta.fetchedAt
+      }
+    }
+
+    if (!this.deps.provider.getCharacters) {
+      return {
+        vndbId,
+        characters: existing,
+        fromCache: true,
+        fetchedAt: existing[0]?.fetchedAt ?? null
+      }
+    }
+
+    let remoteCharacters: CharacterRecord[]
+    try {
+      remoteCharacters = await this.deps.provider.getCharacters(vndbId, policy)
+    } catch (error) {
+      if (existing.length > 0 && !options.force) {
+        return {
+          vndbId,
+          characters: existing,
+          fromCache: true,
+          fetchedAt: existing[0]?.fetchedAt ?? null
+        }
+      }
+      throw error
+    }
+
+    const previousByCharId = new Map(existing.map((c) => [c.id, c.portraitUrl]))
+    const fetchedAt = (this.deps.now?.() ?? new Date()).toISOString()
+    const localized: CharacterRecord[] = []
+
+    for (const char of remoteCharacters) {
+      const prevPortrait = previousByCharId.get(char.id) ?? null
+      const portraitUrl = await this.download(char.portraitUrl, `${char.id}-portrait`, prevPortrait)
+      localized.push({
+        ...char,
+        portraitUrl,
+        fetchedAt
+      })
+    }
+
+    this.deps.store.saveCachedCharacters?.(vndbId, localized)
+    this.deps.cache.set(cacheKey, { fetchedAt, count: localized.length })
+    return {
+      vndbId,
+      characters: localized,
+      fromCache: false,
+      fetchedAt
+    }
+  }
+
+  async findBySteamAppIds(appIds: readonly number[]): Promise<Map<number, SteamVndbReleaseMatch[]>> {
+    if (!this.deps.provider.findBySteamAppIds) return new Map()
+    return this.deps.provider.findBySteamAppIds(appIds)
   }
 
   private async details(externalId: string, policy: ContentPolicy, force: boolean): Promise<MetadataDetails> {

@@ -1,3 +1,10 @@
+import type {
+  CharacterBiographySegment,
+  CharacterRecord,
+  CharacterRole,
+  CharacterTrait,
+  SpoilerLevel
+} from '@shared/characters'
 import type { MetadataCandidate, MetadataDetails } from '@shared/metadata'
 import type { ContentRating } from '@shared/types'
 import { UserFacingError } from '../errors'
@@ -13,12 +20,17 @@ import type { RequestScheduler } from './scheduler'
  */
 export const VNDB_API = 'https://api.vndb.org/kana'
 export const VNDB_ID = /^v\d{1,9}$/
+export const VNDB_CHAR_ID = /^c\d{1,9}$/
 
 const SEARCH_FIELDS = 'title, alttitle, olang, released, languages, developers{name}, image{url,thumbnail,sexual,violence,dims}'
 const DETAIL_FIELDS =
   'title, alttitle, titles{title,latin}, aliases, olang, released, languages, description, ' +
   'image{url,sexual,violence,dims}, screenshots{url,sexual,violence,dims}, developers{name}, ' +
   'tags{name,category,rating,spoiler}'
+const CHARACTER_FIELDS =
+  'id, name, original, aliases, description, blood_type, height, weight, age, birthday, ' +
+  'image{url,dims,sexual,violence}, vns{id,role,spoiler}, traits{id,name,group_name,spoiler,lie}'
+const STEAM_RELEASE_FIELDS = 'id, title, extlinks{site,id}, vns{id,rtype,title,alttitle}'
 
 // ---- content safety -------------------------------------------------------------------------
 // VNDB flags every image with averaged votes: sexual 0 (safe) to 2 (explicit), violence 0 to 2 (brutal).
@@ -260,6 +272,232 @@ export function parseReleaseMinAges(response: unknown): number[] {
   return resultsOf(response).flatMap((release) => (isRecord(release) && typeof release.minage === 'number' ? [release.minage] : []))
 }
 
+// ---- character profiles and spoiler segmentation ----------------------------------------------
+
+function stripNonSpoilerFormatting(text: string): string {
+  return text
+    .replace(/\[url=[^\]]*\]([\s\S]*?)\[\/url\]/gi, '$1')
+    .replace(/\[\/?(?:b|i|u|s|raw|code|quote|url)\]/gi, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/**
+ * Splits a VNDB character description into safe vs `[spoiler]...[/spoiler]` segments so
+ * the UI can hide spoiler text by default and reveal it only on explicit user action.
+ */
+export function parseCharacterBiography(raw: string | null | undefined): {
+  plainDescription: string | null
+  segments: CharacterBiographySegment[]
+  hasSpoilers: boolean
+} {
+  if (!raw || !raw.trim()) return { plainDescription: null, segments: [], hasSpoilers: false }
+
+  const segments: CharacterBiographySegment[] = []
+  const pattern = /\[spoiler\]([\s\S]*?)(?:\[\/spoiler\]|$)/gi
+  let cursor = 0
+  let match: RegExpExecArray | null
+
+  while ((match = pattern.exec(raw)) !== null) {
+    if (match.index > cursor) {
+      const before = stripNonSpoilerFormatting(raw.slice(cursor, match.index))
+      if (before) segments.push({ text: before, spoiler: false })
+    }
+    const spoilerText = stripNonSpoilerFormatting(match[1] ?? '')
+    if (spoilerText) segments.push({ text: spoilerText, spoiler: true })
+    cursor = match.index + match[0].length
+  }
+
+  if (cursor < raw.length) {
+    const rest = stripNonSpoilerFormatting(raw.slice(cursor))
+    if (rest) segments.push({ text: rest, spoiler: false })
+  }
+
+  const hasSpoilers = segments.some((s) => s.spoiler)
+  const plain = segments
+    .filter((s) => !s.spoiler)
+    .map((s) => s.text)
+    .join('\n\n')
+    .trim()
+
+  return {
+    plainDescription: plain || null,
+    segments,
+    hasSpoilers
+  }
+}
+
+const ROLE_PRIORITY: Record<CharacterRole, number> = {
+  main: 0,
+  primary: 1,
+  side: 2,
+  appears: 3
+}
+
+function toRole(value: unknown): CharacterRole {
+  return value === 'main' || value === 'primary' || value === 'side' || value === 'appears' ? value : 'appears'
+}
+
+function toSpoilerLevel(value: unknown): SpoilerLevel {
+  return value === 1 || value === 2 ? value : 0
+}
+
+export function parseCharactersResponse(
+  response: unknown,
+  vndbId: string,
+  policy: ContentPolicy = 'family',
+  fetchedAt: string = new Date().toISOString()
+): CharacterRecord[] {
+  const rows = resultsOf(response)
+  const records: CharacterRecord[] = []
+
+  for (const raw of rows) {
+    if (!isRecord(raw)) continue
+    const id = str(raw.id)
+    const name = str(raw.name)
+    if (!id || !VNDB_CHAR_ID.test(id) || !name) continue
+
+    const vnsList = list(raw.vns).filter(isRecord)
+    const matchingVns = vnsList.filter((v) => str(v.id) === vndbId)
+    if (vnsList.length > 0 && matchingVns.length === 0) continue
+
+    let role: CharacterRole = 'appears'
+    let spoiler: SpoilerLevel = 0
+    if (matchingVns.length > 0) {
+      const sortedVns = [...matchingVns].sort((a, b) => {
+        const roleDiff = ROLE_PRIORITY[toRole(a.role)] - ROLE_PRIORITY[toRole(b.role)]
+        if (roleDiff !== 0) return roleDiff
+        return toSpoilerLevel(a.spoiler) - toSpoilerLevel(b.spoiler)
+      })
+      const best = sortedVns[0]
+      role = toRole(best.role)
+      spoiler = toSpoilerLevel(best.spoiler)
+    }
+
+    const image = parseImage(raw.image)
+    const portraitUrl = image && (policy === 'adult' || isImageSafe(image)) ? image.url : null
+
+    const bio = parseCharacterBiography(str(raw.description))
+    const aliases = list(raw.aliases).flatMap((a) => (typeof a === 'string' && a.trim() ? [a.trim()] : []))
+
+    const traits: CharacterTrait[] = list(raw.traits).flatMap((t): CharacterTrait[] => {
+      if (!isRecord(t)) return []
+      const traitName = str(t.name)
+      if (!traitName) return []
+      const traitId = str(t.id) ?? traitName
+      return [
+        {
+          id: traitId,
+          name: traitName,
+          groupName: str(t.group_name),
+          spoiler: toSpoilerLevel(t.spoiler),
+          lie: Boolean(t.lie)
+        }
+      ]
+    })
+
+    const bday = list(raw.birthday)
+    const birthday: [number, number] | null =
+      bday.length === 2 &&
+      typeof bday[0] === 'number' &&
+      typeof bday[1] === 'number' &&
+      bday[0] >= 1 &&
+      bday[0] <= 12 &&
+      bday[1] >= 1 &&
+      bday[1] <= 31
+        ? [bday[0], bday[1]]
+        : null
+
+    records.push({
+      id,
+      vndbId,
+      name,
+      originalName: str(raw.original),
+      aliases: [...new Set(aliases)].slice(0, 10),
+      description: bio.plainDescription,
+      biographySegments: bio.segments,
+      hasBiographySpoilers: bio.hasSpoilers,
+      role,
+      spoiler,
+      portraitUrl,
+      bloodType: str(raw.blood_type),
+      heightCm: typeof raw.height === 'number' && raw.height > 0 ? Math.round(raw.height) : null,
+      weightKg: typeof raw.weight === 'number' && raw.weight > 0 ? Math.round(raw.weight) : null,
+      age: typeof raw.age === 'number' && raw.age >= 0 ? Math.round(raw.age) : null,
+      birthday,
+      traits,
+      vndbUrl: `https://vndb.org/${id}`,
+      fetchedAt
+    })
+  }
+
+  return records.sort((a, b) => {
+    const roleDiff = ROLE_PRIORITY[a.role] - ROLE_PRIORITY[b.role]
+    if (roleDiff !== 0) return roleDiff
+    if (a.spoiler !== b.spoiler) return a.spoiler - b.spoiler
+    return a.name.localeCompare(b.name)
+  })
+}
+
+// ---- Steam release extlink matching -----------------------------------------------------------
+
+export interface SteamVndbReleaseMatch {
+  steamAppId: number
+  vndbId: string
+  title: string
+  originalTitle: string | null
+  rtype: 'complete' | 'partial' | 'trial'
+}
+
+const RTYPE_PRIORITY: Record<'complete' | 'partial' | 'trial', number> = {
+  complete: 0,
+  partial: 1,
+  trial: 2
+}
+
+export function parseSteamReleaseMatches(
+  response: unknown,
+  requestedAppIds: ReadonlySet<number>
+): Map<number, SteamVndbReleaseMatch[]> {
+  const byAppId = new Map<number, SteamVndbReleaseMatch[]>()
+  for (const raw of resultsOf(response)) {
+    if (!isRecord(raw)) continue
+    const extlinks = list(raw.extlinks).filter(isRecord)
+    const steamAppIds = extlinks
+      .filter((ext) => str(ext.site) === 'steam')
+      .map((ext) => Number(ext.id))
+      .filter((id) => Number.isInteger(id) && id > 0 && requestedAppIds.has(id))
+    if (steamAppIds.length === 0) continue
+
+    const vns = list(raw.vns).filter(isRecord)
+    const releaseTitle = str(raw.title)
+    for (const appId of steamAppIds) {
+      const listForApp = byAppId.get(appId) ?? []
+      for (const vn of vns) {
+        const vndbId = str(vn.id)
+        if (!vndbId || !VNDB_ID.test(vndbId)) continue
+        const rawRtype = str(vn.rtype)
+        const rtype: 'complete' | 'partial' | 'trial' =
+          rawRtype === 'partial' || rawRtype === 'trial' ? rawRtype : 'complete'
+        const title = str(vn.title) ?? releaseTitle ?? vndbId
+        const originalTitle = str(vn.alttitle)
+        const existingIndex = listForApp.findIndex((item) => item.vndbId === vndbId)
+        if (existingIndex >= 0) {
+          if (RTYPE_PRIORITY[rtype] < RTYPE_PRIORITY[listForApp[existingIndex].rtype]) {
+            listForApp[existingIndex] = { steamAppId: appId, vndbId, title, originalTitle, rtype }
+          }
+        } else {
+          listForApp.push({ steamAppId: appId, vndbId, title, originalTitle, rtype })
+        }
+      }
+      listForApp.sort((a, b) => RTYPE_PRIORITY[a.rtype] - RTYPE_PRIORITY[b.rtype])
+      if (listForApp.length > 0) byAppId.set(appId, listForApp)
+    }
+  }
+  return byAppId
+}
+
 // ---- the provider ----------------------------------------------------------------------------
 
 function networkError(error: unknown): UserFacingError {
@@ -289,6 +527,63 @@ export class VndbProvider implements MetadataProvider {
     // The age rating decides what may be shown, so a failure here fails the whole lookup.
     const releases = await this.post('/release', { filters: ['vn', '=', ['id', '=', externalId]], fields: 'minage', results: 100 })
     return parseVnDetails(vn, parseReleaseMinAges(releases), policy)
+  }
+
+  async getCharacters(externalId: string, policy: ContentPolicy = 'family'): Promise<CharacterRecord[]> {
+    if (!VNDB_ID.test(externalId)) throw new UserFacingError('That VNDB ID is not valid.')
+    const fetchedAt = new Date().toISOString()
+    const combined: CharacterRecord[] = []
+    const seen = new Set<string>()
+
+    for (let page = 1; page <= 3; page++) {
+      const response = await this.post('/character', {
+        filters: ['vn', '=', ['id', '=', externalId]],
+        fields: CHARACTER_FIELDS,
+        results: 50,
+        page
+      })
+      const batch = parseCharactersResponse(response, externalId, policy, fetchedAt)
+      for (const item of batch) {
+        if (!seen.has(item.id)) {
+          seen.add(item.id)
+          combined.push(item)
+        }
+      }
+      if (!isRecord(response) || response.more !== true) break
+    }
+
+    return combined.sort((a, b) => {
+      const roleDiff = ROLE_PRIORITY[a.role] - ROLE_PRIORITY[b.role]
+      if (roleDiff !== 0) return roleDiff
+      if (a.spoiler !== b.spoiler) return a.spoiler - b.spoiler
+      return a.name.localeCompare(b.name)
+    })
+  }
+
+  async findBySteamAppIds(appIds: readonly number[]): Promise<Map<number, SteamVndbReleaseMatch[]>> {
+    const valid = [...new Set(appIds.filter((id) => Number.isInteger(id) && id > 0))]
+    const result = new Map<number, SteamVndbReleaseMatch[]>()
+    if (valid.length === 0) return result
+
+    const batchSize = 20
+    for (let i = 0; i < valid.length; i += batchSize) {
+      const batch = valid.slice(i, i + batchSize)
+      const requestedSet = new Set(batch)
+      const filters =
+        batch.length === 1
+          ? ['extlink', '=', ['steam', batch[0]]]
+          : ['or', ...batch.map((id) => ['extlink', '=', ['steam', id]])]
+      const response = await this.post('/release', {
+        filters,
+        fields: STEAM_RELEASE_FIELDS,
+        results: 100
+      })
+      const parsed = parseSteamReleaseMatches(response, requestedSet)
+      for (const [appId, matches] of parsed) {
+        result.set(appId, matches)
+      }
+    }
+    return result
   }
 
   private post(path: string, body: unknown): Promise<unknown> {

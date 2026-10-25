@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, Menu, net, protocol, shell } from 'electron'
+import { app, BrowserWindow, dialog, Menu, net, protocol, safeStorage, shell } from 'electron'
 import { join } from 'node:path'
 import { APP_CONFIG } from '@shared/app-config'
 import { IPC } from '@shared/ipc'
@@ -18,6 +18,9 @@ import { MetadataService } from './metadata/metadataService'
 import { RequestScheduler } from './metadata/scheduler'
 import { VndbProvider } from './metadata/vndb'
 import { createTrustedUrlGuard, hardenWebContents } from './security'
+import { detectLocalSteamPath } from './steam/localSteam'
+import { SteamService } from './steam/steamService'
+import { fallbackCipher, type SecretCipher, SteamWebApiClient } from './steam/steamWebApi'
 
 const isDev = !app.isPackaged
 const devServerUrl = isDev ? process.env['ELECTRON_RENDERER_URL'] : undefined
@@ -109,9 +112,52 @@ async function start(): Promise<void> {
   })
   protocol.handle('vnstation-art', (request) => handleArtRequest(artwork, request.url))
 
+  const cipher: SecretCipher = {
+    encrypt: (plainText) => {
+      if (safeStorage.isEncryptionAvailable()) {
+        return `dpapi:${safeStorage.encryptString(plainText).toString('base64')}`
+      }
+      return fallbackCipher.encrypt(plainText)
+    },
+    decrypt: (cipherText) => {
+      if (cipherText.startsWith('dpapi:') && safeStorage.isEncryptionAvailable()) {
+        return safeStorage.decryptString(Buffer.from(cipherText.slice(6), 'base64'))
+      }
+      return fallbackCipher.decrypt(cipherText)
+    }
+  }
+
+  const steam = new SteamService({
+    db: database,
+    store,
+    metadata,
+    webApi: new SteamWebApiClient(fetcher),
+    cipher
+  })
+
   launcher = new ProcessGameLauncher({
     store,
     probeFolder: probeWindowsFolderActivity,
+    launchSteamUri: async (steamUri) => {
+      const status = await steam.getStatus().catch(() => null)
+      const hasSteamInstall = Boolean(status?.localSteamPath || status?.detectedSteamPath || detectLocalSteamPath())
+      if (!hasSteamInstall && process.platform === 'win32') {
+        // Still attempt shell.openExternal in case Steam is registered in a custom drive,
+        // and return false if Windows rejects the protocol.
+        try {
+          await shell.openExternal(steamUri)
+          return true
+        } catch {
+          return false
+        }
+      }
+      try {
+        await shell.openExternal(steamUri)
+        return true
+      } catch {
+        return false
+      }
+    },
     revealInFolder: async (executablePath, workingDirectory) => {
       if (executablePath) {
         shell.showItemInFolder(executablePath)
@@ -151,6 +197,7 @@ async function start(): Promise<void> {
     library: new LibraryService(store),
     settings: new SettingsStore(database),
     metadata,
+    steam,
     launcher,
     databasePath
   })
