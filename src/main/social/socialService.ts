@@ -5,6 +5,7 @@ import {
   AVATAR_PRESETS,
   DEFAULT_PRIVACY_SETTINGS,
   DEFAULT_PROFILE_CUSTOMIZATION,
+  DEFAULT_SUPABASE_ANON_KEY,
   DEFAULT_SUPABASE_URL,
   FRIEND_CODE_REGEX,
   normalizeFriendCode,
@@ -407,6 +408,7 @@ export class SocialService implements SocialApi {
   }
 
   private getBackendConfig(): StoredBackendConfig {
+    const isTest = Boolean(process.env['VITEST']) || process.env['NODE_ENV'] === 'test'
     const fileEnv = loadLocalEnvFile()
     const stored = this.readEncryptedSetting<StoredBackendConfig>(KEY_BACKEND_CFG)
     const envUrl =
@@ -414,20 +416,27 @@ export class SocialService implements SocialApi {
       process.env['VITE_SUPABASE_URL'] ??
       fileEnv['VNSTATION_SUPABASE_URL'] ??
       fileEnv['VITE_SUPABASE_URL'] ??
-      DEFAULT_SUPABASE_URL
+      (isTest ? '' : DEFAULT_SUPABASE_URL)
     const envKey =
       process.env['VNSTATION_SUPABASE_ANON_KEY'] ??
       process.env['VITE_SUPABASE_ANON_KEY'] ??
       fileEnv['VNSTATION_SUPABASE_ANON_KEY'] ??
       fileEnv['VITE_SUPABASE_ANON_KEY'] ??
-      ''
+      (isTest ? '' : DEFAULT_SUPABASE_ANON_KEY)
 
     if (stored && stored.url && stored.anonKey) return stored
+    if (stored && stored.enabled === false) {
+      return {
+        url: stored.url || envUrl,
+        anonKey: stored.anonKey || envKey,
+        enabled: false
+      }
+    }
     if (envUrl && envKey) return { url: envUrl, anonKey: envKey, enabled: true }
     return {
       url: stored?.url || envUrl,
       anonKey: stored?.anonKey ?? envKey,
-      enabled: Boolean(stored?.enabled || (envUrl && envKey && stored?.enabled !== false))
+      enabled: Boolean(stored?.enabled || (envUrl && envKey))
     }
   }
 
@@ -805,6 +814,30 @@ export class SocialService implements SocialApi {
       nowIso
     )
 
+    if (accessToken && backendCfg.enabled && backendCfg.url && backendCfg.anonKey) {
+      try {
+        const client = new SupabaseRestClient(backendCfg.url, backendCfg.anonKey, this.fetcher)
+        await client.rest('profiles', accessToken, {
+          method: 'POST',
+          body: {
+            user_id: userId,
+            username,
+            display_name: displayName,
+            friend_code: friendCode,
+            bio: '',
+            avatar_preset: avatarPreset,
+            avatar_url: null,
+            presence: 'online',
+            currently_playing: null,
+            customization: DEFAULT_PROFILE_CUSTOMIZATION,
+            privacy: DEFAULT_PRIVACY_SETTINGS
+          }
+        })
+      } catch {
+        // Proceed gracefully if already inserted or trigger exists
+      }
+    }
+
     this.saveActiveSession({ userId, email, emailVerified, accessToken, refreshToken })
     this.emit({ type: 'state-changed' })
     return this.getState()
@@ -830,6 +863,50 @@ export class SocialService implements SocialApi {
       emailVerified = Boolean(session.user.emailConfirmedAt)
       accessToken = session.accessToken
       refreshToken = session.refreshToken
+
+      if (accessToken) {
+        try {
+          const remoteProfiles = await client.rest<Array<Record<string, unknown>>>(
+            `profiles?user_id=eq.${encodeURIComponent(userId)}&select=*`,
+            accessToken
+          )
+          if (remoteProfiles && remoteProfiles.length > 0) {
+            const p = remoteProfiles[0]
+            this.db.run(
+              `INSERT INTO social_profiles (
+                user_id, username, display_name, friend_code, bio, avatar_preset, avatar_url,
+                presence, currently_playing, customization_json, privacy_json, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(user_id) DO UPDATE SET
+                username = excluded.username,
+                display_name = excluded.display_name,
+                bio = excluded.bio,
+                avatar_preset = excluded.avatar_preset,
+                avatar_url = excluded.avatar_url,
+                presence = excluded.presence,
+                currently_playing = excluded.currently_playing,
+                customization_json = excluded.customization_json,
+                privacy_json = excluded.privacy_json,
+                updated_at = excluded.updated_at`,
+              String(p.user_id),
+              String(p.username),
+              String(p.display_name),
+              String(p.friend_code),
+              String(p.bio || ''),
+              String(p.avatar_preset || 'aoko'),
+              p.avatar_url ? String(p.avatar_url) : null,
+              String(p.presence || 'online'),
+              p.currently_playing ? String(p.currently_playing) : null,
+              JSON.stringify(p.customization || DEFAULT_PROFILE_CUSTOMIZATION),
+              JSON.stringify(p.privacy || DEFAULT_PRIVACY_SETTINGS),
+              String(p.created_at || new Date(this.now()).toISOString()),
+              String(p.updated_at || new Date(this.now()).toISOString())
+            )
+          }
+        } catch {
+          // Fall back to existing local profile if network fails
+        }
+      }
 
       // Ensure local profile mirror exists for this Supabase user
       const existing = this.loadProfileById(userId)
@@ -960,6 +1037,31 @@ export class SocialService implements SocialApi {
       userId
     )
 
+    const backendCfg = this.getBackendConfig()
+    if (this.activeSession?.accessToken && backendCfg.enabled && backendCfg.url && backendCfg.anonKey) {
+      try {
+        const client = new SupabaseRestClient(backendCfg.url, backendCfg.anonKey, this.fetcher)
+        void client
+          .rest(`profiles?user_id=eq.${encodeURIComponent(userId)}`, this.activeSession.accessToken, {
+            method: 'PATCH',
+            body: {
+              display_name: displayName,
+              bio,
+              avatar_preset: avatarPreset,
+              avatar_url: avatarUrl,
+              presence,
+              currently_playing: currentlyPlaying,
+              customization,
+              privacy,
+              updated_at: nowIso
+            }
+          })
+          .catch(() => undefined)
+      } catch {
+        // Fall back gracefully if offline
+      }
+    }
+
     const updated = this.loadProfileById(userId)!
     this.emit({ type: 'state-changed' })
     return updated
@@ -1014,7 +1116,56 @@ export class SocialService implements SocialApi {
       }
     }
 
-    const row = this.db.get<ProfileRow>('SELECT * FROM social_profiles WHERE friend_code = ?', code)
+    let row = this.db.get<ProfileRow>('SELECT * FROM social_profiles WHERE friend_code = ?', code)
+    if (!row) {
+      const backendCfg = this.getBackendConfig()
+      if (backendCfg.enabled && backendCfg.url && backendCfg.anonKey) {
+        try {
+          const client = new SupabaseRestClient(backendCfg.url, backendCfg.anonKey, this.fetcher)
+          const token = this.activeSession?.accessToken || backendCfg.anonKey
+          const remote = await client.rest<Array<Record<string, unknown>>>(
+            `profiles?friend_code=eq.${encodeURIComponent(code)}&select=*`,
+            token
+          )
+          if (remote && remote.length > 0) {
+            const p = remote[0]
+            this.db.run(
+              `INSERT INTO social_profiles (
+                user_id, username, display_name, friend_code, bio, avatar_preset, avatar_url,
+                presence, currently_playing, customization_json, privacy_json, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(user_id) DO UPDATE SET
+                username = excluded.username,
+                display_name = excluded.display_name,
+                bio = excluded.bio,
+                avatar_preset = excluded.avatar_preset,
+                avatar_url = excluded.avatar_url,
+                presence = excluded.presence,
+                currently_playing = excluded.currently_playing,
+                customization_json = excluded.customization_json,
+                privacy_json = excluded.privacy_json,
+                updated_at = excluded.updated_at`,
+              String(p.user_id),
+              String(p.username),
+              String(p.display_name),
+              String(p.friend_code),
+              String(p.bio || ''),
+              String(p.avatar_preset || 'aoko'),
+              p.avatar_url ? String(p.avatar_url) : null,
+              String(p.presence || 'online'),
+              p.currently_playing ? String(p.currently_playing) : null,
+              JSON.stringify(p.customization || DEFAULT_PROFILE_CUSTOMIZATION),
+              JSON.stringify(p.privacy || DEFAULT_PRIVACY_SETTINGS),
+              String(p.created_at || new Date(this.now()).toISOString()),
+              String(p.updated_at || new Date(this.now()).toISOString())
+            )
+            row = this.db.get<ProfileRow>('SELECT * FROM social_profiles WHERE friend_code = ?', code)
+          }
+        } catch {
+          // Ignore network errors, fall through to !row check
+        }
+      }
+    }
     if (!row) {
       return {
         found: false,
@@ -1097,7 +1248,11 @@ export class SocialService implements SocialApi {
       throw new Error('Invalid Friend Code format. Expected VNS-XXXX-XXXX.')
     }
 
-    const targetRow = this.db.get<ProfileRow>('SELECT * FROM social_profiles WHERE friend_code = ?', code)
+    let targetRow = this.db.get<ProfileRow>('SELECT * FROM social_profiles WHERE friend_code = ?', code)
+    if (!targetRow) {
+      await this.lookupFriendCode(code)
+      targetRow = this.db.get<ProfileRow>('SELECT * FROM social_profiles WHERE friend_code = ?', code)
+    }
     if (!targetRow) {
       throw new Error('Could not find an account with that Friend Code.')
     }
@@ -1145,6 +1300,24 @@ export class SocialService implements SocialApi {
       nowIso,
       acceptedAt
     )
+
+    const backendCfg = this.getBackendConfig()
+    if (this.activeSession?.accessToken && backendCfg.enabled && backendCfg.url && backendCfg.anonKey) {
+      try {
+        const client = new SupabaseRestClient(backendCfg.url, backendCfg.anonKey, this.fetcher)
+        void client
+          .rest('friendships', this.activeSession.accessToken, {
+            method: 'POST',
+            body: {
+              id,
+              requester_id: requesterId,
+              recipient_id: target.userId,
+              status
+            }
+          })
+          .catch(() => undefined)
+      } catch {}
+    }
 
     if (autoAccept) {
       // Seed a welcome conversation & message from Aoko
@@ -1471,6 +1644,26 @@ export class SocialService implements SocialApi {
         senderId
       )
     })
+
+    const backendCfg = this.getBackendConfig()
+    if (this.activeSession?.accessToken && backendCfg.enabled && backendCfg.url && backendCfg.anonKey) {
+      try {
+        const client = new SupabaseRestClient(backendCfg.url, backendCfg.anonKey, this.fetcher)
+        void client
+          .rest('messages', this.activeSession.accessToken, {
+            method: 'POST',
+            body: {
+              id,
+              conversation_id: input.conversationId,
+              sender_id: senderId,
+              client_message_id: clientMessageId,
+              body,
+              created_at: nowIso
+            }
+          })
+          .catch(() => undefined)
+      } catch {}
+    }
 
     const sent: DirectMessage = {
       id,

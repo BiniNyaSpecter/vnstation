@@ -342,6 +342,13 @@ export interface ReportAbuseInput {
 /** Official cloud backend project URL for VNStation social features. */
 export const DEFAULT_SUPABASE_URL = 'https://bwoyrcjpjhwahlhjkldl.supabase.co'
 
+/**
+ * Official public anon key for VNStation social features.
+ * Safe for client-side use; restricted by Supabase PostgreSQL Row-Level Security (RLS).
+ */
+export const DEFAULT_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3b3lyY2pwamh3YWhsaGprbGRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMwMzc5ODMsImV4cCI6MjEwODYxMzk4M30.iF7H76RpSyc5qaFAIaciR-vwmvnN-B-grP01O2QOfKQ'
+
 export interface SupabaseConfigInput {
   url: string
   anonKey: string
