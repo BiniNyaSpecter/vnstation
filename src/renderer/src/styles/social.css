@@ -571,7 +571,10 @@
   background-size: cover;
   background-position: center 25%;
   background-repeat: no-repeat;
+  background-color: rgb(var(--bg-rgb, 12, 14, 28));
   border-bottom: 1px solid var(--profile-border);
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
   overflow: hidden;
 }
 
@@ -584,34 +587,48 @@
 
 .myspace-banner--has-image .myspace-banner__overlay {
   background:
-    /* Signature VNStation multi-stop horizontal gradient scrim:
-       0% - 22%: Deep opaque protection ensuring avatar & identity text have maximum readability
-       22% - 66%: Smooth, seamless fade revealing the banner artwork
-       66% - 100%: Vibrant artwork showcase with gentle edge protection for the friend code badge */
+    /* Deep solid protection: 100% opaque across the identity zone (0% - 40%),
+       ensuring avatar, name, handle, badge, quote, and status chips are 100% covered with zero bleed-through.
+       Then a wide, buttery-smooth cosine falloff seamlessly transitioning into the artwork on the right. */
     linear-gradient(
       90deg,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.96) 0%,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.93) 22%,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.70) 44%,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.24) 66%,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.06) 84%,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.32) 100%
+      rgba(var(--bg-rgb, 12, 14, 28), 1) 0%,
+      rgba(var(--bg-rgb, 12, 14, 28), 1) 40%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.96) 46%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.85) 54%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.62) 64%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.32) 75%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.08) 86%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0) 93%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.28) 100%
     ),
-    /* Bottom vignette: seamless dark grounding meeting the card divider */
+    /* Bottom vignette: dark grounding merging into card divider */
     linear-gradient(
       0deg,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.94) 0%,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.60) 24%,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.15) 52%,
-      transparent 76%
+      rgba(var(--bg-rgb, 12, 14, 28), 0.95) 0%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.60) 22%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.15) 48%,
+      transparent 72%
     ),
-    /* Top rim vignette: subtle depth */
+    /* Top rim vignette: subtle grounding along top edge */
     linear-gradient(
       180deg,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.72) 0%,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.20) 26%,
-      transparent 56%
+      rgba(var(--bg-rgb, 12, 14, 28), 0.75) 0%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.25) 24%,
+      transparent 55%
     );
+}
+
+@media (max-width: 768px) {
+  .myspace-banner--has-image .myspace-banner__overlay {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(var(--bg-rgb, 12, 14, 28), 0.96) 0%,
+        rgba(var(--bg-rgb, 12, 14, 28), 0.88) 60%,
+        rgba(var(--bg-rgb, 12, 14, 28), 0.45) 100%
+      );
+  }
 }
 
 .myspace-banner__content {
@@ -996,18 +1013,18 @@
   background:
     linear-gradient(
       to right,
-      var(--card-bg, #0b0f19) 0%,
-      var(--card-bg, #0b0f19) 20%,
-      rgba(var(--bg-rgb, 11, 15, 25), 0.8) 42%,
-      rgba(var(--bg-rgb, 11, 15, 25), 0.25) 68%,
-      transparent 92%
+      var(--profile-card, rgba(var(--bg-rgb, 12, 14, 28), 0.95)) 0%,
+      var(--profile-card, rgba(var(--bg-rgb, 12, 14, 28), 0.95)) 36%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.84) 50%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.35) 72%,
+      transparent 90%
     ),
     linear-gradient(
       180deg,
-      rgba(var(--bg-rgb, 11, 15, 25), 0.4) 0%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.4) 0%,
       transparent 28%,
       transparent 72%,
-      rgba(var(--bg-rgb, 11, 15, 25), 0.5) 100%
+      rgba(var(--bg-rgb, 12, 14, 28), 0.5) 100%
     );
   pointer-events: none;
 }
