@@ -183,6 +183,19 @@ renderer --launch(gameId, opts)--> ipc --> ProcessGameLauncher --> spawn(exe, ar
   - Character portraits pass through `isImageSafe` under the active `ContentPolicy` and are cached locally in `artwork/vndb/c<id>-portrait.<ext>`.
   - `parseCharacterBiography` strips non-spoiler BBCode while splitting `[spoiler]...[/spoiler]` into segments so spoiler characters, spoiler traits, and spoiler biography blocks stay hidden by default until explicitly revealed.
 
+## Social accounts, MySpace-inspired profiles, Friend Codes & 1-to-1 messaging (Milestone 7)
+
+- **Schema & Backend Architecture (`src/main/social/`, `supabase/migrations/20261026000000_social_platform.sql`):**
+  - **SQLite Migration 5 (`social-platform`):** Adds `social_profiles`, `social_blocks`, `social_friendships` (with canonical pair uniqueness `pair_low < pair_high`), `social_conversations`, `social_participants`, `social_messages` (with idempotent `(conversation_id, sender_id, client_message_id)` uniqueness), and `social_reports`.
+  - **Supabase PostgreSQL + RLS Migration:** Mirrors the relational schema in PostgreSQL with `generate_unique_friend_code()`, `is_blocked_between()`, `are_accepted_friends()`, and strict Row-Level Security (RLS) policies on all 7 tables so users can never impersonate another `auth.uid()`, read non-participant conversations, or message non-friends/blocked users.
+- **Authentication & Secret Storage (`src/main/social/socialService.ts`, `src/main/social/supabaseClient.ts`):**
+  - Sessions and local password verifiers (`scryptSync` + random 16-byte salt + `timingSafeEqual`) are encrypted at rest via Electron's OS-backed `safeStorage` (`SecretCipher`) and never stored as plaintext in `library.db`.
+  - `assertNotServiceRoleKey` inspects JWT payloads and rejects any `service_role` key so only public `anon` keys can be configured in the desktop client.
+- **Authorization & Privacy Redaction (`redactProfileForViewer`):**
+  - Every profile view is filtered through `redactProfileForViewer(profile, relationship, friendsPreview)` according to the viewer's relationship (`'self' | 'friend' | 'stranger'`) and the owner's `ProfilePrivacySettings` (`profileVisibility`, `featuredVnsVisibility`, `showOnlineStatus`, `showCurrentlyPlaying`, `showFriendsList`, `allowFriendRequestsByCode`).
+  - All user-supplied text and customization fields are sanitized (`sanitizeUserText`) and rendered as plain text (never `dangerouslySetInnerHTML`), and custom image URLs are restricted to `https://` or `vnstation-art://` (`sanitizeSafeImageUrl`).
+  - Friend Code lookups (`VNS-XXXX-XXXX`), friend requests, and message sends are protected by per-user sliding-window rate limiters (`RateLimiter`).
+
 ## Known limitations
 
 - VNDB has tags rather than genres, so the Genre filter lists genres and tags together.

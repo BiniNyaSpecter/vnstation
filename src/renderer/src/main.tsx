@@ -6,6 +6,7 @@ import './styles/ui.css'
 import './styles/game.css'
 import './styles/shell.css'
 import './styles/views.css'
+import './styles/social.css'
 import { App } from './App'
 
 createRoot(document.getElementById('root')!).render(

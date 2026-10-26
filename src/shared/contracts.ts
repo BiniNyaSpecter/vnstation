@@ -11,6 +11,8 @@ import type {
 } from './steam'
 import type { Collection, GameEntry, LaunchConfig, Preferences, UserFields } from './types'
 
+export type { SocialApi } from './social'
+
 /**
  * The renderer talks to these interfaces only. In Electron they are backed by the
  * main process (SQLite, over IPC); in a plain browser (design work) and in tests

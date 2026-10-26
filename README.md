@@ -4,12 +4,13 @@ A console-style personal library and launcher for visual novels you already own.
 It links to your existing installs and launches the original executables; it is not a
 visual novel engine and never copies, modifies or uploads your game files.
 
-> **Status: Milestone 6 of 6 (Complete).** Your library is saved locally in SQLite, games can be
+> **Status: Milestone 7 of 7 (Complete).** Your library is saved locally in SQLite, games can be
 > matched to VNDB for titles, descriptions, artwork and full character cast compendiums, Steam libraries
 > can be synchronized (via Steam Web API or local Steam installation) with automatic Visual Novel
 > classification and review queue isolation, executables and Steam entries launch directly with playtime
-> and session tracking, and both keyboard and controller navigation are built in. See
-> [Status](#status) for details.
+> and session tracking, both keyboard and controller navigation are built in, and optional **Social Accounts,
+> MySpace-Inspired Custom Profiles, Friend Codes (`VNS-XXXX-XXXX`), and Private 1-to-1 Messaging** are
+> available in both Local Sandbox and Supabase Cloud modes. See [Status](#status) for details.
 
 ## Prerequisites
 
@@ -94,6 +95,7 @@ background so playing a visual novel with a gamepad never triggers actions in th
 | **Keyboard & controller navigation + Windows packaging** | Working: spatial keyboard + W3C Gamepad navigation (`npm run pack` / `npm run dist`) |
 | **Steam library integration & Visual Novel classification** | Working: connect via Steam Web API (`GetOwnedGames` + `GetPlayerSummaries` with OS-encrypted API key storage) or scan local Steam installation (`libraryfolders.vdf` + `appmanifest_*.acf`), automatically classify Visual Novels via VNDB release `extlink` and title matching, isolate ambiguous matches in a review queue, and support persistent manual include/exclude overrides |
 | **VNDB character profiles & spoiler protection** | Working: fetches and caches character portraits, roles (`main`, `primary`, `side`, `appears`), biographies, and grouped traits per VNDB visual novel (`POST /character`), hides spoiler characters, spoiler traits, and `[spoiler]` biography segments by default until explicitly revealed, and works offline once cached |
+| **Social accounts, Friend Codes, MySpace-inspired custom profiles & private 1-to-1 messaging** | Working: email registration/login with OS-encrypted session persistence (`safeStorage` DPAPI), unique usernames and non-sequential Friend Codes (`VNS-XXXX-XXXX`), rate-limited Friend Code lookup with confirmation preview, incoming/outgoing friend requests, block/unblock and abuse reporting, private 1-to-1 direct messaging with unread badges and delivery states, and customizable MySpace-style visual novel profiles (6 curated themes, 3 layouts, custom accent color, bio, mood/status line, "Now Reading/Listening", Featured VN, Favorite VNs shelf, Character Spotlight, Top Friends grid, and "Preview as Self / Friend / Stranger" privacy controls) |
 
 **Where your data lives:** `library.db` in the app's data folder (on Windows,
 `%APPDATA%\VNStation`; the exact path is shown in Settings, under Storage). Dev and packaged
@@ -136,3 +138,15 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for design decisions, structure
   VNDB flags as explicit or brutal. You can hide them again at any time; your confirmation is remembered.
 - VNDB data is used under the [Open Database License](https://vndb.org/d17); that attribution is shown
   on each game's details page and in Settings. Images and descriptions remain the property of their owners.
+
+## Social platform, Friend Codes & Supabase setup (Milestone 7)
+
+- **Local-first guarantee:** Social accounts are completely optional. Your visual novel library, executables, collections, Steam imports, and playtimes stay local on your PC and work offline whether you are signed in or signed out. Signing out or deleting a social account never modifies or deletes your local game library.
+- **Local Sandbox Mode (Zero-Config Default):** Out of the box, VNStation runs its social backend in Local Sandbox Mode backed by SQLite (`social_*` tables) and OS-encrypted auth credentials (`safeStorage`). Two companion readers are seeded automatically so you can test Friend Code lookups, friend requests, profile privacy, and live 1-to-1 messaging immediately on a single machine:
+  - `VNS-AOKO-2026` (**Aoko Aozaki**, `@aoko_reader`) — public profile, auto-accepts friend requests and replies in direct chat.
+  - `VNS-LABM-2048` (**Kurisu Makise**, `@kurisu_lab004`) — friends-only profile visibility, keeps friend requests in `pending` state.
+- **Supabase Cloud Mode (Cross-PC Accounts & Messaging):**
+  1. Create a Supabase project and apply the SQL migration and Row-Level Security (RLS) policies in `supabase/migrations/20261026000000_social_platform.sql`.
+  2. Open **Settings → Social Account & Privacy → Configure Backend** (or set `VNSTATION_SUPABASE_URL` and `VNSTATION_SUPABASE_ANON_KEY`) and enter your project's HTTPS URL and public `anon` key.
+  3. Service-role keys (`role: "service_role"`) are automatically rejected by the desktop client so elevated database credentials are never bundled or stored on user devices.
+- **Privacy & Data Retention:** New profiles default to **Friends Only** visibility. Showcased visual novels only share public titles, VNDB IDs, and cover URLs — local executable paths (`C:\Games\...`) and private game notes are never uploaded or exposed. Deleting your account in **Settings → Social Account & Privacy** permanently removes your social profile, Friend Code, friendships, and messages.

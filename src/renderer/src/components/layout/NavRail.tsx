@@ -15,7 +15,10 @@ const MAIN_ITEMS: RailItem[] = [
   { name: 'library', label: 'My library', icon: 'library' },
   { name: 'recent', label: 'Recently played', icon: 'recent' },
   { name: 'favorites', label: 'Favorites', icon: 'heart' },
-  { name: 'collections', label: 'Collections', icon: 'collections' }
+  { name: 'collections', label: 'Collections', icon: 'collections' },
+  { name: 'friends', label: 'Friends', icon: 'users' },
+  { name: 'messages', label: 'Messages', icon: 'message' },
+  { name: 'profile', label: 'Profile', icon: 'user' }
 ]
 const SETTINGS_ITEM: RailItem = { name: 'settings', label: 'Settings', icon: 'settings' }
 
@@ -29,33 +32,42 @@ export function NavRail() {
   const collapsed = useAppStore((state) => state.prefs.railCollapsed)
   const navigate = useAppStore((state) => state.navigate)
   const setPref = useAppStore((state) => state.setPref)
+  const unreadMessages = useAppStore((state) => state.social.totalUnreadCount)
+  const incomingFriends = useAppStore(
+    (state) => state.social.friends.filter((f) => f.status === 'pending' && f.direction === 'incoming').length
+  )
   // The root of the back stack is always the top-level section the user is in.
   const active = history[0].name
 
-  const renderItem = (item: RailItem) => (
-    <li key={item.name}>
-      <button
-        type="button"
-        className={cx('rail__item', active === item.name && 'is-active')}
-        data-nav=""
-        aria-current={active === item.name ? 'page' : undefined}
-        aria-label={item.label}
-        title={collapsed ? item.label : undefined}
-        onFocus={(event) => {
-          if (
-            (isSpatialFocusActive() || event.currentTarget.matches(':focus-visible')) &&
-            (active !== item.name || history.length > 1)
-          ) {
-            navigate(routeFor(item.name))
-          }
-        }}
-        onClick={() => navigate(routeFor(item.name))}
-      >
-        <Icon name={item.icon} size={22} />
-        <span className="rail__label">{item.label}</span>
-      </button>
-    </li>
-  )
+  const renderItem = (item: RailItem) => {
+    const badgeCount =
+      item.name === 'messages' ? unreadMessages : item.name === 'friends' ? incomingFriends : 0
+    return (
+      <li key={item.name}>
+        <button
+          type="button"
+          className={cx('rail__item', active === item.name && 'is-active')}
+          data-nav=""
+          aria-current={active === item.name ? 'page' : undefined}
+          aria-label={item.label}
+          title={collapsed ? item.label : undefined}
+          onFocus={(event) => {
+            if (
+              (isSpatialFocusActive() || event.currentTarget.matches(':focus-visible')) &&
+              (active !== item.name || history.length > 1)
+            ) {
+              navigate(routeFor(item.name))
+            }
+          }}
+          onClick={() => navigate(routeFor(item.name))}
+        >
+          <Icon name={item.icon} size={22} />
+          <span className="rail__label">{item.label}</span>
+          {badgeCount > 0 && <span className="nav-badge">{badgeCount}</span>}
+        </button>
+      </li>
+    )
+  }
 
   return (
     <nav className="rail" aria-label="Main" data-collapsed={collapsed} data-nav-scope="rail">

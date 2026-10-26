@@ -1,10 +1,11 @@
-import type { GameLauncher, LibraryRepository, MetadataApi, PreferencesRepository, SteamApi } from '@shared/contracts'
+import type { GameLauncher, LibraryRepository, MetadataApi, PreferencesRepository, SocialApi, SteamApi } from '@shared/contracts'
 import { createSampleSnapshot } from '@shared/sampleLibrary'
 import { LocalStoragePreferences } from '@renderer/lib/prefs'
 import { bridge } from './bridge'
 import { InMemoryLibraryRepository } from './inMemoryLibraryRepository'
 import { StubGameLauncher } from './stubGameLauncher'
 import { unavailableMetadata } from './unavailableMetadata'
+import { unavailableSocial } from './unavailableSocial'
 import { unavailableSteam } from './unavailableSteam'
 
 /**
@@ -16,6 +17,7 @@ export const services: {
   library: LibraryRepository
   metadata: MetadataApi
   steam: SteamApi
+  social: SocialApi
   launcher: GameLauncher
   preferences: PreferencesRepository
 } = bridge
@@ -23,6 +25,7 @@ export const services: {
       library: bridge.library,
       metadata: bridge.metadata,
       steam: bridge.steam,
+      social: bridge.social,
       launcher: bridge.launcher,
       preferences: bridge.settings
     }
@@ -30,6 +33,7 @@ export const services: {
       library: new InMemoryLibraryRepository(createSampleSnapshot()),
       metadata: unavailableMetadata,
       steam: unavailableSteam,
+      social: unavailableSocial,
       launcher: new StubGameLauncher(),
       preferences: new LocalStoragePreferences()
     }

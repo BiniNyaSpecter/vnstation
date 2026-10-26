@@ -58,6 +58,32 @@ export const IPC = {
     openFolder: 'launcher:open-folder',
     /** Main to renderer only: start, tracking and stop events. */
     events: 'launcher:event'
+  },
+  social: {
+    getState: 'social:get-state',
+    register: 'social:register',
+    login: 'social:login',
+    logout: 'social:logout',
+    requestPasswordReset: 'social:request-password-reset',
+    deleteAccount: 'social:delete-account',
+    updateProfile: 'social:update-profile',
+    getProfileView: 'social:get-profile-view',
+    lookupFriendCode: 'social:lookup-friend-code',
+    sendFriendRequest: 'social:send-friend-request',
+    respondFriendRequest: 'social:respond-friend-request',
+    removeFriend: 'social:remove-friend',
+    blockUser: 'social:block-user',
+    unblockUser: 'social:unblock-user',
+    openDirectConversation: 'social:open-direct-conversation',
+    listMessages: 'social:list-messages',
+    sendMessage: 'social:send-message',
+    markConversationRead: 'social:mark-conversation-read',
+    setConversationMuted: 'social:set-conversation-muted',
+    setConversationHidden: 'social:set-conversation-hidden',
+    clearConversationHistory: 'social:clear-conversation-history',
+    reportAbuse: 'social:report-abuse',
+    configureBackend: 'social:configure-backend',
+    events: 'social:event'
   }
 } as const
 

@@ -8,7 +8,10 @@ const ITEMS: Array<{ name: Route['name']; label: string }> = [
   { name: 'library', label: 'My library' },
   { name: 'recent', label: 'Recently played' },
   { name: 'favorites', label: 'Favorites' },
-  { name: 'collections', label: 'Collections' }
+  { name: 'collections', label: 'Collections' },
+  { name: 'friends', label: 'Friends' },
+  { name: 'messages', label: 'Messages' },
+  { name: 'profile', label: 'Profile' }
 ]
 
 const routeFor = (name: Route['name']): Route => (name === 'collections' ? { name, collectionId: null } : ({ name } as Route))
@@ -21,6 +24,10 @@ const routeFor = (name: Route['name']): Route => (name === 'collections' ? { nam
 export function TopNav() {
   const history = useAppStore((state) => state.history)
   const navigate = useAppStore((state) => state.navigate)
+  const unreadMessages = useAppStore((state) => state.social.totalUnreadCount)
+  const incomingFriends = useAppStore(
+    (state) => state.social.friends.filter((f) => f.status === 'pending' && f.direction === 'incoming').length
+  )
   const active = history[0].name
   const bar = useRef<HTMLElement>(null)
   const [mark, setMark] = useState<{ left: number; width: number } | null>(null)
@@ -34,30 +41,35 @@ export function TopNav() {
     const observer = new ResizeObserver(measure)
     if (bar.current) observer.observe(bar.current)
     return () => observer.disconnect()
-  }, [active])
+  }, [active, unreadMessages, incomingFriends])
 
   return (
     <nav className="topnav" aria-label="Main" ref={bar}>
-      {ITEMS.map((item) => (
-        <button
-          key={item.name}
-          type="button"
-          className={cx('topnav__item', active === item.name && 'is-active')}
-          data-nav=""
-          aria-current={active === item.name ? 'page' : undefined}
-          onFocus={(event) => {
-            if (
-              (isSpatialFocusActive() || event.currentTarget.matches(':focus-visible')) &&
-              (active !== item.name || history.length > 1)
-            ) {
-              navigate(routeFor(item.name))
-            }
-          }}
-          onClick={() => navigate(routeFor(item.name))}
-        >
-          {item.label}
-        </button>
-      ))}
+      {ITEMS.map((item) => {
+        const badgeCount =
+          item.name === 'messages' ? unreadMessages : item.name === 'friends' ? incomingFriends : 0
+        return (
+          <button
+            key={item.name}
+            type="button"
+            className={cx('topnav__item', active === item.name && 'is-active')}
+            data-nav=""
+            aria-current={active === item.name ? 'page' : undefined}
+            onFocus={(event) => {
+              if (
+                (isSpatialFocusActive() || event.currentTarget.matches(':focus-visible')) &&
+                (active !== item.name || history.length > 1)
+              ) {
+                navigate(routeFor(item.name))
+              }
+            }}
+            onClick={() => navigate(routeFor(item.name))}
+          >
+            {item.label}
+            {badgeCount > 0 && <span className="nav-badge">{badgeCount}</span>}
+          </button>
+        )
+      })}
       <span
         className="topnav__bar"
         aria-hidden="true"

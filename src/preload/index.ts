@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { IPC, type IpcResult } from '@shared/ipc'
 import type { VNStationApi } from '@shared/api'
 import type { LauncherEvent } from '@shared/launcher'
+import type { SocialEvent } from '@shared/social'
 
 /** Calls one allowlisted channel and unwraps the envelope, turning failures into plain Errors. */
 async function call<T>(channel: string, ...args: unknown[]): Promise<T> {
@@ -59,6 +60,38 @@ const api: VNStationApi = {
     linkCatalogVndb: (appId, externalId, options) =>
       call(IPC.steam.linkCatalogVndb, appId, externalId, options),
     cleanupUnavailable: () => call(IPC.steam.cleanupUnavailable)
+  },
+  social: {
+    getState: () => call(IPC.social.getState),
+    register: (input) => call(IPC.social.register, input),
+    login: (input) => call(IPC.social.login, input),
+    logout: () => call(IPC.social.logout),
+    requestPasswordReset: (email) => call(IPC.social.requestPasswordReset, email),
+    deleteAccount: () => call(IPC.social.deleteAccount),
+    updateProfile: (patch) => call(IPC.social.updateProfile, patch),
+    getProfileView: (targetUserId, viewAs) => call(IPC.social.getProfileView, targetUserId, viewAs),
+    lookupFriendCode: (code) => call(IPC.social.lookupFriendCode, code),
+    sendFriendRequest: (friendCode) => call(IPC.social.sendFriendRequest, friendCode),
+    respondFriendRequest: (friendshipId, action) => call(IPC.social.respondFriendRequest, friendshipId, action),
+    removeFriend: (friendUserId) => call(IPC.social.removeFriend, friendUserId),
+    blockUser: (targetUserId) => call(IPC.social.blockUser, targetUserId),
+    unblockUser: (targetUserId) => call(IPC.social.unblockUser, targetUserId),
+    openDirectConversation: (friendUserId) => call(IPC.social.openDirectConversation, friendUserId),
+    listMessages: (conversationId, options) => call(IPC.social.listMessages, conversationId, options),
+    sendMessage: (input) => call(IPC.social.sendMessage, input),
+    markConversationRead: (conversationId) => call(IPC.social.markConversationRead, conversationId),
+    setConversationMuted: (conversationId, muted) => call(IPC.social.setConversationMuted, conversationId, muted),
+    setConversationHidden: (conversationId, hidden) => call(IPC.social.setConversationHidden, conversationId, hidden),
+    clearConversationHistory: (conversationId) => call(IPC.social.clearConversationHistory, conversationId),
+    reportAbuse: (input) => call(IPC.social.reportAbuse, input),
+    configureBackend: (input) => call(IPC.social.configureBackend, input),
+    subscribe: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: SocialEvent): void => listener(payload)
+      ipcRenderer.on(IPC.social.events, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC.social.events, handler)
+      }
+    }
   },
   settings: {
     load: () => call(IPC.settings.load),

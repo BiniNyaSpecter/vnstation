@@ -2,6 +2,7 @@ import type { AppInfo } from '@shared/api'
 import type { ApplyMetadataOptions, CollectionInput, GameEntryPatch, NewGameDraft, VerifyResult } from '@shared/contracts'
 import type { LauncherEvent, RunningGame } from '@shared/launcher'
 import type { ArtworkKind } from '@shared/metadata'
+import type { SocialEvent, SocialSessionState } from '@shared/social'
 import type { Collection, Game, GameEntry, Preferences } from '@shared/types'
 import { createStore } from '@renderer/lib/store'
 import { useStore } from '@renderer/lib/useStore'
@@ -18,6 +19,9 @@ export type Route =
   | { name: 'recent' }
   | { name: 'favorites' }
   | { name: 'collections'; collectionId: string | null }
+  | { name: 'friends' }
+  | { name: 'messages'; conversationId?: string | null }
+  | { name: 'profile'; userId?: string | null }
   | { name: 'settings' }
   | { name: 'details'; gameId: string }
 
@@ -56,11 +60,18 @@ interface AppState {
   runningGames: Record<string, RunningGame>
   inputMode: 'keyboard' | 'gamepad'
   gamepadName: string | null
+  social: SocialSessionState
+  activeConversationId: string | null
+  draftMessages: Record<string, string>
 }
 
 interface AppActions {
   init: () => Promise<void>
   reloadLibrary: () => Promise<void>
+  refreshSocial: () => Promise<void>
+  setActiveConversation: (conversationId: string | null) => void
+  setDraftMessage: (conversationId: string, text: string) => void
+  clearSocialCache: () => void
   /** Top-level navigation (rail). Resets the back stack. */
   navigate: (route: Route) => void
   /** Cycles through the top-level categories (LB / RB on a controller, [ / ] on a keyboard). */
@@ -110,6 +121,23 @@ interface AppActions {
 
 export type AppStore = AppState & AppActions
 
+const EMPTY_SOCIAL_STATE: SocialSessionState = {
+  mode: 'local-sandbox',
+  backendInfo: {
+    mode: 'local-sandbox',
+    supabaseUrl: '',
+    hasAnonKey: false,
+    enabled: false
+  },
+  connectionState: 'connected',
+  user: null,
+  profile: null,
+  friends: [],
+  blockedUsers: [],
+  conversations: [],
+  totalUnreadCount: 0
+}
+
 let toastSeq = 0
 const HOME: Route = { name: 'home' }
 const CATEGORY_ROUTES: readonly Route[] = [
@@ -118,6 +146,9 @@ const CATEGORY_ROUTES: readonly Route[] = [
   { name: 'recent' },
   { name: 'favorites' },
   { name: 'collections', collectionId: null },
+  { name: 'friends' },
+  { name: 'messages', conversationId: null },
+  { name: 'profile', userId: null },
   { name: 'settings' }
 ]
 
@@ -164,6 +195,21 @@ export const appStore = createStore<AppStore>((set, get) => {
     get().showToast(error instanceof Error && error.message ? error.message : fallback, 'error')
 
   let unsubscribeLauncher: (() => void) | null = null
+  let unsubscribeSocial: (() => void) | null = null
+
+  const onSocialEvent = (event: SocialEvent): void => {
+    void get().refreshSocial()
+    if (event.type === 'message-received') {
+      const current = get()
+      const conv = current.social?.conversations.find((c) => c.id === event.conversationId)
+      const isViewingConv =
+        current.route.name === 'messages' && current.activeConversationId === event.conversationId
+      if (!isViewingConv && !conv?.muted) {
+        const senderName = conv?.participant.displayName ?? 'A friend'
+        current.showToast(`New message from ${senderName}`, 'info')
+      }
+    }
+  }
 
   const onLauncherEvent = (event: LauncherEvent): void => {
     if (event.type === 'started') {
@@ -204,17 +250,23 @@ export const appStore = createStore<AppStore>((set, get) => {
     runningGames: {},
     inputMode: 'keyboard',
     gamepadName: null,
+    social: EMPTY_SOCIAL_STATE,
+    activeConversationId: null,
+    draftMessages: {},
 
     async init() {
       set({ status: 'loading' })
       unsubscribeLauncher?.()
       unsubscribeLauncher = services.launcher.subscribe(onLauncherEvent)
+      unsubscribeSocial?.()
+      unsubscribeSocial = services.social.subscribe(onSocialEvent)
       try {
-        const [snapshot, appInfo, prefs, runningList] = await Promise.all([
+        const [snapshot, appInfo, prefs, runningList, socialState] = await Promise.all([
           services.library.load(),
           bridge ? bridge.app.getInfo().catch(() => null) : Promise.resolve(null),
           loadPreferences(),
-          services.launcher.running().catch(() => [])
+          services.launcher.running().catch(() => []),
+          services.social.getState().catch(() => EMPTY_SOCIAL_STATE)
         ])
         const games = resolveEntries(snapshot.entries)
         const runningGames: Record<string, RunningGame> = {}
@@ -227,6 +279,7 @@ export const appStore = createStore<AppStore>((set, get) => {
           appInfo,
           prefs,
           runningGames,
+          social: socialState,
           selectedGameId: firstVisible(games)?.id ?? null
         })
       } catch {
@@ -240,6 +293,36 @@ export const appStore = createStore<AppStore>((set, get) => {
       } catch (error) {
         fail(error, 'Could not refresh the library.')
       }
+    },
+
+    async refreshSocial() {
+      try {
+        const prevUserId = get().social?.user?.id ?? null
+        const next = await services.social.getState()
+        const nextUserId = next.user?.id ?? null
+        if (prevUserId !== nextUserId) {
+          // Account changed or signed out: wipe cached conversation state immediately.
+          set({ social: next, activeConversationId: null, draftMessages: {} })
+        } else {
+          set({ social: next })
+        }
+      } catch {
+        // Keep existing state if social service is temporarily unreachable
+      }
+    },
+
+    setActiveConversation(conversationId) {
+      set({ activeConversationId: conversationId })
+    },
+
+    setDraftMessage(conversationId, text) {
+      set((state) => ({
+        draftMessages: { ...state.draftMessages, [conversationId]: text }
+      }))
+    },
+
+    clearSocialCache() {
+      set({ activeConversationId: null, draftMessages: {} })
     },
 
     navigate(route) {

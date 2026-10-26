@@ -195,11 +195,102 @@ CREATE TABLE vn_characters (
 CREATE INDEX idx_vn_characters_vndb ON vn_characters (vndb_id, position);
 `
 
+const socialPlatform = `
+CREATE TABLE social_profiles (
+  user_id            TEXT PRIMARY KEY,
+  username           TEXT NOT NULL COLLATE NOCASE UNIQUE,
+  display_name       TEXT NOT NULL,
+  friend_code        TEXT NOT NULL UNIQUE,
+  bio                TEXT NOT NULL DEFAULT '',
+  avatar_preset      TEXT NOT NULL DEFAULT 'aoko'
+                     CHECK (avatar_preset IN ('aoko', 'stella', 'kurisu', 'sakura', 'nocturne', 'ember')),
+  avatar_url         TEXT,
+  presence           TEXT NOT NULL DEFAULT 'online' CHECK (presence IN ('online', 'away', 'offline')),
+  currently_playing  TEXT,
+  customization_json TEXT NOT NULL DEFAULT '{}',
+  privacy_json       TEXT NOT NULL DEFAULT '{}',
+  created_at         TEXT NOT NULL,
+  updated_at         TEXT NOT NULL
+);
+CREATE INDEX idx_social_profiles_friend_code ON social_profiles (friend_code);
+
+CREATE TABLE social_blocks (
+  blocker_id TEXT NOT NULL REFERENCES social_profiles (user_id) ON DELETE CASCADE,
+  blocked_id TEXT NOT NULL REFERENCES social_profiles (user_id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (blocker_id, blocked_id),
+  CHECK (blocker_id <> blocked_id)
+);
+CREATE INDEX idx_social_blocks_blocked ON social_blocks (blocked_id);
+
+CREATE TABLE social_friendships (
+  id           TEXT PRIMARY KEY,
+  requester_id TEXT NOT NULL REFERENCES social_profiles (user_id) ON DELETE CASCADE,
+  recipient_id TEXT NOT NULL REFERENCES social_profiles (user_id) ON DELETE CASCADE,
+  pair_low     TEXT NOT NULL,
+  pair_high    TEXT NOT NULL,
+  status       TEXT NOT NULL CHECK (status IN ('pending', 'accepted')),
+  created_at   TEXT NOT NULL,
+  updated_at   TEXT NOT NULL,
+  accepted_at  TEXT,
+  CHECK (requester_id <> recipient_id),
+  CHECK (pair_low < pair_high),
+  UNIQUE (pair_low, pair_high)
+);
+CREATE INDEX idx_social_friendships_requester ON social_friendships (requester_id, status);
+CREATE INDEX idx_social_friendships_recipient ON social_friendships (recipient_id, status);
+
+CREATE TABLE social_conversations (
+  id         TEXT PRIMARY KEY,
+  type       TEXT NOT NULL DEFAULT 'direct' CHECK (type = 'direct'),
+  pair_low   TEXT NOT NULL REFERENCES social_profiles (user_id) ON DELETE CASCADE,
+  pair_high  TEXT NOT NULL REFERENCES social_profiles (user_id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK (pair_low < pair_high),
+  UNIQUE (pair_low, pair_high)
+);
+
+CREATE TABLE social_participants (
+  conversation_id TEXT NOT NULL REFERENCES social_conversations (id) ON DELETE CASCADE,
+  user_id         TEXT NOT NULL REFERENCES social_profiles (user_id) ON DELETE CASCADE,
+  last_read_at    TEXT,
+  muted           INTEGER NOT NULL DEFAULT 0 CHECK (muted IN (0, 1)),
+  hidden          INTEGER NOT NULL DEFAULT 0 CHECK (hidden IN (0, 1)),
+  cleared_before  TEXT,
+  PRIMARY KEY (conversation_id, user_id)
+);
+CREATE INDEX idx_social_participants_user ON social_participants (user_id);
+
+CREATE TABLE social_messages (
+  id                TEXT PRIMARY KEY,
+  conversation_id   TEXT NOT NULL REFERENCES social_conversations (id) ON DELETE CASCADE,
+  sender_id         TEXT NOT NULL REFERENCES social_profiles (user_id) ON DELETE CASCADE,
+  client_message_id TEXT NOT NULL,
+  body              TEXT NOT NULL,
+  created_at        TEXT NOT NULL,
+  UNIQUE (conversation_id, sender_id, client_message_id)
+);
+CREATE INDEX idx_social_messages_conv ON social_messages (conversation_id, created_at);
+
+CREATE TABLE social_reports (
+  id             TEXT PRIMARY KEY,
+  reporter_id    TEXT NOT NULL REFERENCES social_profiles (user_id) ON DELETE CASCADE,
+  target_user_id TEXT NOT NULL REFERENCES social_profiles (user_id) ON DELETE CASCADE,
+  message_id     TEXT REFERENCES social_messages (id) ON DELETE SET NULL,
+  category       TEXT NOT NULL CHECK (category IN ('spam', 'harassment', 'inappropriate', 'impersonation', 'other')),
+  details        TEXT NOT NULL DEFAULT '',
+  created_at     TEXT NOT NULL,
+  CHECK (reporter_id <> target_user_id)
+);
+`
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'initial-library', sql: initialLibrary },
   { version: 2, name: 'metadata-support', sql: metadataSupport },
   { version: 3, name: 'play-sessions', sql: playSessions },
-  { version: 4, name: 'steam-and-characters', sql: steamAndCharacters }
+  { version: 4, name: 'steam-and-characters', sql: steamAndCharacters },
+  { version: 5, name: 'social-platform', sql: socialPlatform }
 ]
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version

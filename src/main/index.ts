@@ -18,6 +18,7 @@ import { MetadataService } from './metadata/metadataService'
 import { RequestScheduler } from './metadata/scheduler'
 import { VndbProvider } from './metadata/vndb'
 import { createTrustedUrlGuard, hardenWebContents } from './security'
+import { SocialService } from './social/socialService'
 import { detectLocalSteamPath } from './steam/localSteam'
 import { SteamService } from './steam/steamService'
 import { fallbackCipher, type SecretCipher, SteamWebApiClient } from './steam/steamWebApi'
@@ -135,6 +136,20 @@ async function start(): Promise<void> {
     cipher
   })
 
+  const social = new SocialService({
+    db: database,
+    cipher,
+    fetcher
+  })
+
+  social.subscribe((event) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+        win.webContents.send(IPC.social.events, event)
+      }
+    }
+  })
+
   launcher = new ProcessGameLauncher({
     store,
     probeFolder: probeWindowsFolderActivity,
@@ -185,6 +200,17 @@ async function start(): Promise<void> {
     }
   })
   launcher.subscribe((event) => {
+    if (event.type === 'started') {
+      const entry = store.snapshot().entries.find((e) => e.id === event.game.gameId)
+      const title = entry?.user.title ?? entry?.provider.title ?? null
+      social.setCurrentlyPlayingTitle(title)
+    } else if (event.type === 'stopped') {
+      void (launcher ? launcher.running() : Promise.resolve([])).then((stillRunning) => {
+        if (stillRunning.length === 0) {
+          social.setCurrentlyPlayingTitle(null)
+        }
+      })
+    }
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
         win.webContents.send(IPC.launcher.events, event)
@@ -198,6 +224,7 @@ async function start(): Promise<void> {
     settings: new SettingsStore(database),
     metadata,
     steam,
+    social,
     launcher,
     databasePath
   })

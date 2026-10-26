@@ -5,6 +5,7 @@ export type IconName =
   | 'home' | 'library' | 'recent' | 'heart' | 'heartFilled' | 'collections' | 'settings' | 'search'
   | 'plus' | 'play' | 'info' | 'more' | 'chevronLeft' | 'chevronRight' | 'chevronDown' | 'close'
   | 'grid' | 'shelf' | 'check' | 'alert' | 'panel' | 'folder' | 'copy' | 'trash' | 'arrowLeft' | 'mark' | 'edit'
+  | 'user' | 'users' | 'message' | 'send' | 'shield'
 
 const ICONS: Record<IconName, ReactNode> = {
   home: <path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4v-5H9v5H5a1 1 0 0 1-1-1z" />,
@@ -111,6 +112,23 @@ const ICONS: Record<IconName, ReactNode> = {
       <path d="m13.5 6.5 4 4" />
     </>
   ),
+  user: (
+    <>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 19.5c1.5-3.2 4-4.8 7-4.8s5.5 1.6 7 4.8" />
+    </>
+  ),
+  users: (
+    <>
+      <circle cx="9.5" cy="8.5" r="3" />
+      <path d="M3.5 19c1.2-2.7 3.3-4 6-4s4.8 1.3 6 4" />
+      <circle cx="16.5" cy="9" r="2.3" />
+      <path d="M16.5 15c2 0 3.6 1 4.5 3.3" />
+    </>
+  ),
+  message: <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9.5a1.5 1.5 0 0 1-1.5 1.5H9l-4.5 3.5V16.5H5.5A1.5 1.5 0 0 1 4 15z" />,
+  send: <path d="M3.5 11.5 20.5 4l-4.5 16-4.5-5.5-8-3zm9 3 8-10.5" />,
+  shield: <path d="M12 3.5 5 6.5v5.5c0 4.5 3 7.6 7 9 4-1.4 7-4.5 7-9V6.5z" />,
   mark: <path d="M7 4h10v16l-5-3.6L7 20z" fill="currentColor" />
 }
 

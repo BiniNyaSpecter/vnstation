@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { AccentId, GamepadConfirm, MotionMode, NavLayout, SortKey, ThemeId, TitleFont } from '@shared/types'
+import { SocialSection } from '@renderer/components/settings/SocialSection'
 import { SteamSection } from '@renderer/components/settings/SteamSection'
 import { Button } from '@renderer/components/ui/Button'
 import { Select } from '@renderer/components/ui/Select'
@@ -190,6 +191,8 @@ export function SettingsView() {
             </Button>
           </Row>
         </Section>
+
+        <SocialSection />
 
         <SteamSection />
 

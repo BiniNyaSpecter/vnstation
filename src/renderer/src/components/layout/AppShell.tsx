@@ -13,8 +13,11 @@ import { useAppStore } from '@renderer/state/appStore'
 import { useSelectedGame, useVisibleGames } from '@renderer/state/hooks'
 import { CollectionsView } from '@renderer/views/CollectionsView'
 import { DetailsView } from '@renderer/views/DetailsView'
+import { FriendsView } from '@renderer/views/FriendsView'
 import { HomeView } from '@renderer/views/HomeView'
 import { LibraryView } from '@renderer/views/LibraryView'
+import { MessagesView } from '@renderer/views/MessagesView'
+import { ProfileView } from '@renderer/views/ProfileView'
 import { SettingsView } from '@renderer/views/SettingsView'
 import { HintBar } from './HintBar'
 import { NavRail } from './NavRail'
@@ -39,7 +42,16 @@ export function AppShell() {
     ((route.name === 'library' || route.name === 'recent' || route.name === 'favorites' || (route.name === 'collections' && route.collectionId !== null)) &&
       libraryLayout === 'shelf')
 
-  const routeKey = route.name === 'collections' ? `c-${route.collectionId ?? ''}` : route.name === 'details' ? `d-${route.gameId}` : route.name
+  const routeKey =
+    route.name === 'collections'
+      ? `c-${route.collectionId ?? ''}`
+      : route.name === 'details'
+        ? `d-${route.gameId}`
+        : route.name === 'profile'
+          ? `p-${route.userId ?? 'self'}`
+          : route.name === 'messages'
+            ? 'messages'
+            : route.name
 
   // When navigating between tabs with a controller or keyboard, move focus into the new view's
   // entry point automatically unless focus is currently intentionally inside the top bar or side rail.
@@ -77,6 +89,12 @@ export function AppShell() {
         return <LibraryView scope="favorites" />
       case 'collections':
         return <CollectionsView collectionId={route.collectionId} />
+      case 'friends':
+        return <FriendsView />
+      case 'messages':
+        return <MessagesView conversationId={route.conversationId} />
+      case 'profile':
+        return <ProfileView userId={route.userId} />
       case 'settings':
         return <SettingsView />
       case 'details':

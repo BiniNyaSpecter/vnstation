@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent, type OpenDialogOptions } from 'electron'
 import { IPC } from '@shared/ipc'
 import type { AppInfo, PickExecutableResult, PickFolderResult, ScanFolderResult } from '@shared/api'
-import type { GameLauncher, LibraryRepository, PreferencesRepository, SteamApi } from '@shared/contracts'
+import type { GameLauncher, LibraryRepository, PreferencesRepository, SocialApi, SteamApi } from '@shared/contracts'
 import { InvalidExecutableError, validateDirectory, validateExecutable } from './executables'
 import { scanFolderForExecutables } from './folderScanner'
 import { toResult } from './ipcResult'
@@ -9,17 +9,29 @@ import type { MetadataService } from './metadata/metadataService'
 import {
   parseApplyOptions,
   parseArtworkKind,
+  parseBooleanFlag,
   parseCharactersOptions,
   parseClassificationOverride,
+  parseEmailInput,
   parseExternalId,
+  parseFriendCodeInput,
+  parseFriendRequestAction,
   parseHistoryLimit,
   parseId,
   parseLaunchOptions,
+  parseLoginInput,
+  parseMessageQueryOptions,
+  parseProfilePatch,
   parseRefreshOptions,
+  parseRegisterInput,
+  parseReportAbuseInput,
   parseSearchOptions,
+  parseSendMessageInput,
   parseSteamAppId,
   parseSteamConnectInput,
   parseSteamSyncOptions,
+  parseSupabaseConfigInput,
+  parseViewAs,
   parseVndbUrl
 } from './validation'
 import type { UrlGuard } from './security'
@@ -30,6 +42,7 @@ export interface IpcDependencies {
   settings: PreferencesRepository
   metadata: MetadataService
   steam?: SteamApi
+  social?: SocialApi
   launcher: GameLauncher
   databasePath: string
 }
@@ -97,7 +110,7 @@ async function scanFolder(event: IpcMainInvokeEvent): Promise<ScanFolderResult> 
 }
 
 /** Registers every allowlisted IPC handler. Add new channels to `shared/ipc.ts` first. */
-export function registerIpcHandlers({ isTrustedUrl, library, settings, metadata, steam, launcher, databasePath }: IpcDependencies): void {
+export function registerIpcHandlers({ isTrustedUrl, library, settings, metadata, steam, social, launcher, databasePath }: IpcDependencies): void {
   /** Registers one channel: checks the sender, runs the handler, returns the envelope. */
   const handle = <Args extends unknown[], R>(
     channel: string,
@@ -169,6 +182,48 @@ export function registerIpcHandlers({ isTrustedUrl, library, settings, metadata,
       steam.linkCatalogVndb(parseSteamAppId(appId), parseExternalId(externalId), parseRefreshOptions(options))
     )
     handle(IPC.steam.cleanupUnavailable, () => steam.cleanupUnavailable())
+  }
+
+  if (social) {
+    handle(IPC.social.getState, () => social.getState())
+    handle(IPC.social.register, (_e, input: never) => social.register(parseRegisterInput(input)))
+    handle(IPC.social.login, (_e, input: never) => social.login(parseLoginInput(input)))
+    handle(IPC.social.logout, () => social.logout())
+    handle(IPC.social.requestPasswordReset, (_e, email: never) => social.requestPasswordReset(parseEmailInput(email)))
+    handle(IPC.social.deleteAccount, () => social.deleteAccount())
+    handle(IPC.social.updateProfile, (_e, patch: never) => social.updateProfile(parseProfilePatch(patch)))
+    handle(IPC.social.getProfileView, (_e, targetId: never, viewAs: never) =>
+      social.getProfileView(parseId(targetId, 'user'), parseViewAs(viewAs))
+    )
+    handle(IPC.social.lookupFriendCode, (_e, code: never) => social.lookupFriendCode(parseFriendCodeInput(code)))
+    handle(IPC.social.sendFriendRequest, (_e, code: never) => social.sendFriendRequest(parseFriendCodeInput(code)))
+    handle(IPC.social.respondFriendRequest, (_e, id: never, action: never) =>
+      social.respondFriendRequest(parseId(id, 'friend request'), parseFriendRequestAction(action))
+    )
+    handle(IPC.social.removeFriend, (_e, friendUserId: never) => social.removeFriend(parseId(friendUserId, 'user')))
+    handle(IPC.social.blockUser, (_e, targetUserId: never) => social.blockUser(parseId(targetUserId, 'user')))
+    handle(IPC.social.unblockUser, (_e, targetUserId: never) => social.unblockUser(parseId(targetUserId, 'user')))
+    handle(IPC.social.openDirectConversation, (_e, friendUserId: never) =>
+      social.openDirectConversation(parseId(friendUserId, 'user'))
+    )
+    handle(IPC.social.listMessages, (_e, conversationId: never, options: never) =>
+      social.listMessages(parseId(conversationId, 'conversation'), parseMessageQueryOptions(options))
+    )
+    handle(IPC.social.sendMessage, (_e, input: never) => social.sendMessage(parseSendMessageInput(input)))
+    handle(IPC.social.markConversationRead, (_e, conversationId: never) =>
+      social.markConversationRead(parseId(conversationId, 'conversation'))
+    )
+    handle(IPC.social.setConversationMuted, (_e, conversationId: never, muted: never) =>
+      social.setConversationMuted(parseId(conversationId, 'conversation'), parseBooleanFlag(muted, 'mute flag'))
+    )
+    handle(IPC.social.setConversationHidden, (_e, conversationId: never, hidden: never) =>
+      social.setConversationHidden(parseId(conversationId, 'conversation'), parseBooleanFlag(hidden, 'hide flag'))
+    )
+    handle(IPC.social.clearConversationHistory, (_e, conversationId: never) =>
+      social.clearConversationHistory(parseId(conversationId, 'conversation'))
+    )
+    handle(IPC.social.reportAbuse, (_e, input: never) => social.reportAbuse(parseReportAbuseInput(input)))
+    handle(IPC.social.configureBackend, (_e, input: never) => social.configureBackend(parseSupabaseConfigInput(input)))
   }
 
   handle(IPC.settings.load, () => settings.load())

@@ -4,7 +4,7 @@ import { Icon, type IconName } from './Icon'
 
 export interface ButtonProps extends ComponentProps<'button'> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
-  size?: 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg'
   icon?: IconName
   /** Include in directional (arrow-key / gamepad) navigation. Default true. */
   nav?: boolean
@@ -31,7 +31,7 @@ export function Button({
       data-nav-default={entryPoint ? '' : undefined}
       {...rest}
     >
-      {icon && <Icon name={icon} size={size === 'lg' ? 22 : 18} />}
+      {icon && <Icon name={icon} size={size === 'lg' ? 22 : size === 'sm' ? 15 : 18} />}
       {children && <span>{children}</span>}
     </button>
   )

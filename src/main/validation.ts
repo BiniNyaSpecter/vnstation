@@ -1,6 +1,14 @@
 import type { CollectionInput, GameEntryPatch, NewGameDraft } from '@shared/contracts'
 import type { LaunchOptions } from '@shared/launcher'
 import { ART_URL_PREFIX, type ArtworkKind } from '@shared/metadata'
+import type {
+  LoginAccountInput,
+  ProfilePatchInput,
+  RegisterAccountInput,
+  ReportAbuseInput,
+  SendMessageInput,
+  SupabaseConfigInput
+} from '@shared/social'
 import type { ClassificationOverride, SteamConnectInput, SteamSyncOptions } from '@shared/steam'
 import type { UserFields } from '@shared/types'
 import { UserFacingError } from './errors'
@@ -217,4 +225,89 @@ export function parseClassificationOverride(value: unknown): ClassificationOverr
     return invalid('classification override')
   }
   return value
+}
+
+export function parseRegisterInput(value: unknown): RegisterAccountInput {
+  if (!isRecord(value)) return invalid('registration')
+  return {
+    email: text(value.email, LIMITS.short, 'email'),
+    password: text(value.password, LIMITS.short, 'password'),
+    username: text(value.username, 64, 'username'),
+    displayName: text(value.displayName ?? '', 120, 'display name'),
+    avatarPreset: typeof value.avatarPreset === 'string' ? (value.avatarPreset as RegisterAccountInput['avatarPreset']) : undefined
+  }
+}
+
+export function parseLoginInput(value: unknown): LoginAccountInput {
+  if (!isRecord(value)) return invalid('sign-in')
+  return {
+    email: text(value.email, LIMITS.short, 'email'),
+    password: text(value.password, LIMITS.short, 'password')
+  }
+}
+
+export function parseEmailInput(value: unknown): string {
+  return text(value, LIMITS.short, 'email')
+}
+
+export function parseProfilePatch(value: unknown): ProfilePatchInput {
+  if (!isRecord(value)) return invalid('profile update')
+  return value as ProfilePatchInput
+}
+
+export function parseViewAs(value: unknown): 'self' | 'friend' | 'stranger' | undefined {
+  if (value === undefined || value === null) return undefined
+  if (value !== 'self' && value !== 'friend' && value !== 'stranger') return invalid('view mode')
+  return value
+}
+
+export function parseFriendCodeInput(value: unknown): string {
+  return text(value, 64, 'Friend Code')
+}
+
+export function parseFriendRequestAction(value: unknown): 'accept' | 'decline' | 'cancel' {
+  if (value !== 'accept' && value !== 'decline' && value !== 'cancel') return invalid('friend request action')
+  return value
+}
+
+export function parseMessageQueryOptions(value: unknown): { limit?: number; before?: string } | undefined {
+  if (value === undefined || value === null) return undefined
+  if (!isRecord(value)) return invalid('message options')
+  const limit = value.limit !== undefined ? Number(value.limit) : undefined
+  const before = value.before !== undefined ? text(value.before, 64, 'cursor') : undefined
+  return { limit, before }
+}
+
+export function parseSendMessageInput(value: unknown): SendMessageInput {
+  if (!isRecord(value)) return invalid('message')
+  return {
+    conversationId: parseId(value.conversationId, 'conversation'),
+    body: text(value.body, 4000, 'message'),
+    clientMessageId: value.clientMessageId !== undefined ? text(value.clientMessageId, 100, 'message ID') : undefined
+  }
+}
+
+export function parseBooleanFlag(value: unknown, label = 'flag'): boolean {
+  if (typeof value !== 'boolean') return invalid(label)
+  return value
+}
+
+export function parseReportAbuseInput(value: unknown): ReportAbuseInput {
+  if (!isRecord(value)) return invalid('report')
+  const category = text(value.category, 40, 'category') as ReportAbuseInput['category']
+  return {
+    targetUserId: parseId(value.targetUserId, 'user'),
+    messageId: value.messageId ? parseId(value.messageId, 'message') : null,
+    category,
+    details: text(value.details ?? '', 1500, 'report details')
+  }
+}
+
+export function parseSupabaseConfigInput(value: unknown): SupabaseConfigInput {
+  if (!isRecord(value) || typeof value.enabled !== 'boolean') return invalid('backend configuration')
+  return {
+    url: text(value.url ?? '', LIMITS.url, 'Supabase URL'),
+    anonKey: text(value.anonKey ?? '', LIMITS.url, 'Supabase anon key'),
+    enabled: value.enabled
+  }
 }
