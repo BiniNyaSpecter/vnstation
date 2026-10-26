@@ -929,6 +929,19 @@ export function ProfileView({ userId }: { userId?: string | null }) {
 
                   return (
                     <div className="myspace-box myspace-box--spotlight">
+                      {artUrl && (
+                        <div className="myspace-spotlight__art-wrap" aria-hidden="true">
+                          <img
+                            src={artUrl}
+                            alt=""
+                            className="myspace-spotlight__art"
+                            onError={(e) => {
+                              (e.currentTarget.parentElement as HTMLElement)?.style.setProperty('display', 'none')
+                            }}
+                          />
+                          <div className="myspace-spotlight__art-scrim" />
+                        </div>
+                      )}
                       <div className="myspace-box__head">
                         <h2 className="myspace-box__title">Featured Visual Novel</h2>
                         <Badge tone="accent">Spotlight</Badge>
@@ -944,19 +957,6 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                             <p className="myspace-spotlight__blurb">“{featured.blurb}”</p>
                           )}
                         </div>
-                        {artUrl && (
-                          <div className="myspace-spotlight__art-wrap" aria-hidden="true">
-                            <img
-                              src={artUrl}
-                              alt=""
-                              className="myspace-spotlight__art"
-                              onError={(e) => {
-                                (e.currentTarget.parentElement as HTMLElement)?.style.setProperty('display', 'none')
-                              }}
-                            />
-                            <div className="myspace-spotlight__art-gradient" />
-                          </div>
-                        )}
                       </div>
                     </div>
                   )
