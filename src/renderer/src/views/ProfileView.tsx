@@ -752,13 +752,28 @@ export function ProfileView({ userId }: { userId?: string | null }) {
           }
         >
           {/* Profile Banner */}
-          <div
-            className={cx('myspace-banner', safeBanner && 'myspace-banner--has-image')}
-            style={{
-              backgroundImage: safeBanner ? `url("${safeBanner}"), ${themeDef.bannerGradient}` : themeDef.bannerGradient
-            }}
-          >
-            <div className="myspace-banner__overlay" />
+          <div className="myspace-banner">
+            <div className="myspace-banner__media" aria-hidden="true">
+              {safeBanner ? (
+                <img
+                  src={safeBanner}
+                  alt=""
+                  className="myspace-banner__img"
+                  loading="eager"
+                  decoding="async"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = 'none'
+                  }}
+                />
+              ) : (
+                <div
+                  className="myspace-banner__theme-bg"
+                  style={{ background: themeDef.bannerGradient }}
+                />
+              )}
+              <div className="myspace-banner__scrim" />
+            </div>
+
             <div className="myspace-banner__content">
               <Avatar
                 displayName={profileView.displayName}
