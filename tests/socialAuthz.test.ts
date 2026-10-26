@@ -506,6 +506,22 @@ describe('Milestone 7 — Social Accounts, Friend Codes, Custom Profiles & Autho
 
     expect(sanitizeSafeImageUrl('javascript:evil()')).toBeNull()
     expect(sanitizeSafeImageUrl('data:text/html,<script>alert(1)</script>')).toBeNull()
+    expect(sanitizeSafeImageUrl('data:image/exe;base64,AAAA')).toBeNull()
+    expect(sanitizeSafeImageUrl('data:text/html;base64,PHNjcmlwdD4=')).toBeNull()
+
+    const sampleDataUrl =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+    expect(sanitizeSafeImageUrl(sampleDataUrl)).toBe(sampleDataUrl)
+
+    const withUpload = await service.updateProfile({
+      avatarUrl: sampleDataUrl,
+      customization: {
+        backgroundUrl: sampleDataUrl
+      }
+    })
+    expect(withUpload.avatarUrl).toBe(sampleDataUrl)
+    expect(withUpload.customization.backgroundUrl).toBe(sampleDataUrl)
+
     expect(sanitizeSafeImageUrl('https://s2.vndb.org/cv/01/12345.jpg')).toBe(
       'https://s2.vndb.org/cv/01/12345.jpg'
     )

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { AVATAR_PRESETS, sanitizeSafeImageUrl, type AvatarPresetId, type PresenceState } from '@shared/social'
 import { cx } from '@renderer/lib/cx'
 
@@ -23,6 +24,7 @@ export function Avatar({
   className
 }: AvatarProps) {
   const safeUrl = sanitizeSafeImageUrl(avatarUrl)
+  const [imgError, setImgError] = useState(false)
   const presetDef = AVATAR_PRESETS[preset ?? 'aoko'] ?? AVATAR_PRESETS.aoko
   const label = (displayName || username || 'VN').trim()
   const initials =
@@ -43,13 +45,15 @@ export function Avatar({
       }}
       aria-hidden="true"
     >
-      {safeUrl ? (
+      {safeUrl && !imgError ? (
         <img
+          key={safeUrl}
           src={safeUrl}
           alt=""
           className="social-avatar__img"
           referrerPolicy="no-referrer"
           loading="lazy"
+          onError={() => setImgError(true)}
         />
       ) : (
         <span className="social-avatar__initials">{initials}</span>

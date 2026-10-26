@@ -19,6 +19,11 @@
   opacity: 0.16;
 }
 
+.backdrop.is-hidden {
+  opacity: 0 !important;
+  visibility: hidden;
+}
+
 /* Strength is applied once to the whole stack: during a crossfade the incoming image
    covers the outgoing one instead of the two showing through each other. */
 .backdrop__layers {

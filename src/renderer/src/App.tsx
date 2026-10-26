@@ -137,11 +137,24 @@ function useGamepadNavigation(): void {
     if (!enabled || typeof navigator.getGamepads !== 'function') return
     const tracker = new GamepadTracker()
     let frame = 0
+    let active = true
+    let scheduled = false
 
-    const step = (now: number): void => {
+    const schedule = (): void => {
+      if (!active || scheduled) return
       if (document.visibilityState !== 'visible' || !document.hasFocus()) {
         tracker.reset()
-        frame = window.requestAnimationFrame(step)
+        return
+      }
+      scheduled = true
+      frame = window.requestAnimationFrame(step)
+    }
+
+    const step = (now: number): void => {
+      scheduled = false
+      if (!active) return
+      if (document.visibilityState !== 'visible' || !document.hasFocus()) {
+        tracker.reset()
         return
       }
 
@@ -177,14 +190,35 @@ function useGamepadNavigation(): void {
         }
       }
 
-      frame = window.requestAnimationFrame(step)
+      schedule()
     }
 
-    const onBlur = (): void => tracker.reset()
+    const onFocus = (): void => {
+      tracker.reset()
+      schedule()
+    }
+    const onBlur = (): void => {
+      tracker.reset()
+    }
+    const onVisibility = (): void => {
+      if (document.visibilityState === 'visible' && document.hasFocus()) {
+        tracker.reset()
+        schedule()
+      } else {
+        tracker.reset()
+      }
+    }
+
+    window.addEventListener('focus', onFocus)
     window.addEventListener('blur', onBlur)
-    frame = window.requestAnimationFrame(step)
+    document.addEventListener('visibilitychange', onVisibility)
+    schedule()
+
     return () => {
+      active = false
+      window.removeEventListener('focus', onFocus)
       window.removeEventListener('blur', onBlur)
+      document.removeEventListener('visibilitychange', onVisibility)
       window.cancelAnimationFrame(frame)
     }
   }, [enabled])

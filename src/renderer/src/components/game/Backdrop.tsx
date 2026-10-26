@@ -48,23 +48,28 @@ export function preloadImage(src: string): Promise<boolean> {
 export function Backdrop({
   game,
   drift = false,
-  dimmed = false
+  dimmed = false,
+  hidden = false
 }: {
-  game: BackdropGame
+  game?: BackdropGame | null
   drift?: boolean
   dimmed?: boolean
+  hidden?: boolean
 }) {
-  const { backgroundUrl, backgroundFallbackUrl } = game
+  const backgroundUrl = game?.backgroundUrl ?? ''
+  const backgroundFallbackUrl = game?.backgroundFallbackUrl ?? ''
   const [layers, setLayers] = useState<Layer[]>(() => {
-    void preloadImage(backgroundUrl)
-    return [{ key: 0, src: backgroundUrl, enter: false }]
+    if (backgroundUrl) void preloadImage(backgroundUrl)
+    return backgroundUrl ? [{ key: 0, src: backgroundUrl, enter: false }] : []
   })
 
   useEffect(() => {
+    if (!backgroundUrl) return
     let cancelled = false
     const show = (src: string): void => {
       if (cancelled) return
       setLayers((current) => {
+        if (current.length === 0) return [{ key: 0, src, enter: false }]
         const top = current[current.length - 1]
         if (top.src === src) return current
         if (reducedMotion()) return [{ key: top.key + 1, src, enter: false }]
@@ -74,8 +79,10 @@ export function Backdrop({
     }
     void preloadImage(backgroundUrl).then(async (ok) => {
       if (ok) return show(backgroundUrl)
-      await preloadImage(backgroundFallbackUrl)
-      show(backgroundFallbackUrl)
+      if (backgroundFallbackUrl) {
+        await preloadImage(backgroundFallbackUrl)
+        show(backgroundFallbackUrl)
+      }
     })
     return () => {
       cancelled = true
@@ -85,7 +92,15 @@ export function Backdrop({
   const settle = (key: number): void => setLayers((current) => current.filter((layer) => layer.key >= key))
 
   return (
-    <div className={cx('backdrop', drift && 'backdrop--drift', dimmed && 'backdrop--dim')} aria-hidden="true">
+    <div
+      className={cx(
+        'backdrop',
+        drift && 'backdrop--drift',
+        dimmed && 'backdrop--dim',
+        hidden && 'is-hidden'
+      )}
+      aria-hidden="true"
+    >
       <div className="backdrop__layers">
         {layers.map((layer) => (
           <BackdropImage

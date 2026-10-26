@@ -484,6 +484,71 @@
   font-size: 12.5px;
 }
 
+.social-upload-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.social-upload-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.social-upload-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.social-upload-preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+}
+
+.social-upload-thumb {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid var(--border-strong);
+}
+
+.social-upload-banner-thumb {
+  width: 90px;
+  height: 42px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid var(--border-strong);
+}
+
+.social-upload-url-toggle {
+  margin-top: 4px;
+}
+
+.social-text-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.social-text-link:hover {
+  color: var(--fg);
+}
+
 /* MySpace Canvas */
 .myspace-canvas {
   --profile-accent: #9db4ff;
@@ -790,6 +855,28 @@
   color: var(--fg-muted);
 }
 
+.myspace-box--spotlight {
+  position: relative;
+  overflow: hidden;
+  border-left: 3px solid var(--profile-accent);
+}
+
+.myspace-spotlight {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 105px;
+}
+
+.myspace-spotlight__info {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  max-width: 65%;
+  padding-right: 18px;
+}
+
 .myspace-spotlight__vn-title {
   margin: 0;
   font-size: 18px;
@@ -809,6 +896,55 @@
   font-size: 13.5px;
   font-style: italic;
   color: var(--fg);
+}
+
+.myspace-spotlight__art-wrap {
+  position: absolute;
+  top: -16px;
+  right: -20px;
+  bottom: -16px;
+  width: 52%;
+  max-width: 480px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.myspace-spotlight__art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 25%;
+}
+
+.myspace-spotlight__art-gradient {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      var(--profile-card, rgba(16, 20, 42, 0.96)) 0%,
+      color-mix(in srgb, var(--profile-card, rgba(16, 20, 42, 0.96)) 85%, transparent) 26%,
+      color-mix(in srgb, var(--profile-card, rgba(16, 20, 42, 0.96)) 25%, transparent) 64%,
+      transparent 100%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--profile-card, rgba(16, 20, 42, 0.96)) 55%, transparent) 0%,
+      transparent 20%,
+      transparent 80%,
+      var(--profile-card, rgba(16, 20, 42, 0.96)) 100%
+    );
+}
+
+@media (max-width: 720px) {
+  .myspace-spotlight__info {
+    max-width: 100%;
+  }
+  .myspace-spotlight__art-wrap {
+    opacity: 0.25;
+    width: 80%;
+  }
 }
 
 .myspace-shelf {

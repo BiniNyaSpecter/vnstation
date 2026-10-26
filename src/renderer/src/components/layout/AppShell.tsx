@@ -112,7 +112,12 @@ export function AppShell() {
   return (
     <div className="shell" data-rail={navLayout === 'rail' ? (collapsed ? 'collapsed' : 'expanded') : undefined} data-nav={navLayout}>
       <WaveBackground />
-      {backdropGame && isGameRoute && <Backdrop game={backdropGame} drift={route.name === 'details'} dimmed={!isHeroRoute} />}
+      <Backdrop
+        game={backdropGame}
+        drift={route.name === 'details'}
+        dimmed={!isHeroRoute}
+        hidden={!backdropGame || !isGameRoute}
+      />
       {navLayout === 'rail' && <NavRail />}
       <main className="shell__main">
         <TopBar />

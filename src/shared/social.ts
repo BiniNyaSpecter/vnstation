@@ -413,14 +413,24 @@ export function sanitizeUserText(raw: unknown, maxLength: number, allowNewlines 
 }
 
 /**
- * Validates that an optional image URL is safe (only https:// or vnstation-art://).
- * Blocks javascript:, data:, file://, http://, or arbitrary schemes.
+ * Validates that an optional image URL is safe (https://, vnstation-art://, or safe data:image/ base64).
+ * Blocks javascript:, file://, http://, data:text/html, or arbitrary executable schemes.
  */
 export function sanitizeSafeImageUrl(raw: unknown): string | null {
   if (raw === null || raw === undefined || raw === '') return null
   if (typeof raw !== 'string') return null
   const trimmed = raw.trim()
   if (!trimmed) return null
+  if (trimmed.startsWith('data:image/')) {
+    const match = /^data:image\/(?:png|jpeg|jpg|webp|gif);base64,/i.exec(trimmed)
+    if (match) {
+      const b64 = trimmed.slice(match[0].length).replace(/\s+/g, '')
+      if (/^[A-Za-z0-9+/=]+$/.test(b64)) {
+        return `${match[0]}${b64}`
+      }
+    }
+    return null
+  }
   try {
     const parsed = new URL(trimmed)
     if (parsed.protocol === 'https:' || parsed.protocol === 'vnstation-art:') {

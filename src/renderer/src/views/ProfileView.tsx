@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
 import {
   AVATAR_PRESETS,
   PROFILE_THEMES,
@@ -14,6 +14,7 @@ import {
   type PublicProfileView,
   type UserProfile
 } from '@shared/social'
+import { processImageUpload } from '@renderer/lib/imageUpload'
 import { AuthPanel } from '@renderer/components/social/AuthPanel'
 import { Avatar } from '@renderer/components/social/Avatar'
 import { Badge } from '@renderer/components/ui/Badge'
@@ -76,6 +77,34 @@ export function ProfileView({ userId }: { userId?: string | null }) {
   const [featuredCharVn, setFeaturedCharVn] = useState('')
   const [featuredCharNote, setFeaturedCharNote] = useState('')
   const [privacy, setPrivacy] = useState<ProfilePrivacySettings | null>(null)
+
+  const avatarFileRef = useRef<HTMLInputElement>(null)
+  const bannerFileRef = useRef<HTMLInputElement>(null)
+  const [showUrlInputs, setShowUrlInputs] = useState(false)
+
+  const handleAvatarFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const dataUrl = await processImageUpload(file, 256, 256, 0.88)
+      setAvatarUrl(dataUrl)
+      showToast('Avatar image loaded successfully.', 'success')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not load image.', 'error')
+    }
+  }
+
+  const handleBannerFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const dataUrl = await processImageUpload(file, 1280, 480, 0.85)
+      setBackgroundUrl(dataUrl)
+      showToast('Banner header image loaded successfully.', 'success')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not load image.', 'error')
+    }
+  }
 
   const syncEditorFromProfile = useCallback((p: UserProfile) => {
     setDisplayName(p.displayName)
@@ -226,7 +255,7 @@ export function ProfileView({ userId }: { userId?: string | null }) {
       title: g.title,
       vndbId: g.source?.externalId ?? null,
       developer: g.developer || null,
-      coverUrl: sanitizeSafeImageUrl(g.coverUrl),
+      coverUrl: sanitizeSafeImageUrl(g.backgroundUrl) || sanitizeSafeImageUrl(g.coverUrl),
       blurb: featuredVn?.blurb ?? ''
     })
   }
@@ -248,7 +277,7 @@ export function ProfileView({ userId }: { userId?: string | null }) {
           title: g.title,
           vndbId: g.source?.externalId ?? null,
           developer: g.developer || null,
-          coverUrl: sanitizeSafeImageUrl(g.coverUrl),
+          coverUrl: sanitizeSafeImageUrl(g.backgroundUrl) || sanitizeSafeImageUrl(g.coverUrl),
           blurb: ''
         }
       ])
@@ -461,28 +490,117 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                   </div>
                 </div>
 
-                <div className="social-auth__row">
-                  <label className="field">
-                    <span className="field__label">Custom Avatar Image URL (https://)</span>
+                <div className="social-upload-group">
+                  {/* Avatar Upload */}
+                  <div className="social-upload-field">
+                    <span className="field__label">Custom Avatar Image</span>
                     <input
-                      type="url"
-                      placeholder="https://..."
-                      value={avatarUrl}
-                      data-nav=""
-                      onChange={(e) => setAvatarUrl(e.target.value)}
+                      ref={avatarFileRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      style={{ display: 'none' }}
+                      onChange={(e) => void handleAvatarFile(e)}
                     />
-                  </label>
-                  <label className="field">
-                    <span className="field__label">Custom Banner Image URL (https://)</span>
+                    <div className="social-upload-controls">
+                      {avatarUrl ? (
+                        <div className="social-upload-preview">
+                          <img
+                            src={avatarUrl}
+                            alt="Avatar preview"
+                            className="social-upload-thumb"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLElement).style.display = 'none'
+                            }}
+                          />
+                          <Button size="sm" onClick={() => avatarFileRef.current?.click()}>
+                            Change file…
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setAvatarUrl('')}>
+                            Remove
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button size="sm" icon="plus" onClick={() => avatarFileRef.current?.click()}>
+                          Upload Avatar File…
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Banner / Header Upload */}
+                  <div className="social-upload-field">
+                    <span className="field__label">Custom Profile Banner Header</span>
                     <input
-                      type="url"
-                      placeholder="https://..."
-                      value={backgroundUrl}
-                      data-nav=""
-                      onChange={(e) => setBackgroundUrl(e.target.value)}
+                      ref={bannerFileRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      style={{ display: 'none' }}
+                      onChange={(e) => void handleBannerFile(e)}
                     />
-                  </label>
+                    <div className="social-upload-controls">
+                      {backgroundUrl ? (
+                        <div className="social-upload-preview">
+                          <img
+                            src={backgroundUrl}
+                            alt="Banner preview"
+                            className="social-upload-banner-thumb"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLElement).style.display = 'none'
+                            }}
+                          />
+                          <Button size="sm" onClick={() => bannerFileRef.current?.click()}>
+                            Change file…
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setBackgroundUrl('')}>
+                            Remove
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button size="sm" icon="plus" onClick={() => bannerFileRef.current?.click()}>
+                          Upload Banner Header File…
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
+
+                <div className="social-upload-url-toggle">
+                  <button
+                    type="button"
+                    className="social-text-link"
+                    data-nav=""
+                    onClick={() => setShowUrlInputs((v) => !v)}
+                  >
+                    {showUrlInputs ? '− Hide external image link fields' : '+ Or paste external image URLs'}
+                  </button>
+                </div>
+
+                {showUrlInputs && (
+                  <div className="social-auth__row">
+                    <label className="field">
+                      <span className="field__label">Custom Avatar URL (https://)</span>
+                      <input
+                        type="url"
+                        className="input"
+                        placeholder="https://..."
+                        value={avatarUrl}
+                        data-nav=""
+                        onChange={(e) => setAvatarUrl(e.target.value)}
+                      />
+                    </label>
+                    <label className="field">
+                      <span className="field__label">Custom Banner URL (https://)</span>
+                      <input
+                        type="url"
+                        className="input"
+                        placeholder="https://..."
+                        value={backgroundUrl}
+                        data-nav=""
+                        onChange={(e) => setBackgroundUrl(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                )}
               </div>
 
               {/* Column 3: Visual Novel Showcase & Privacy */}
@@ -797,34 +915,52 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                   )}
                 </div>
 
-                {profileView.customization.featuredVn && (
-                  <div className="myspace-box myspace-box--spotlight">
-                    <div className="myspace-box__head">
-                      <h2 className="myspace-box__title">Featured Visual Novel</h2>
-                      <Badge tone="accent">Spotlight</Badge>
-                    </div>
-                    <div className="myspace-spotlight">
-                      <div className="myspace-spotlight__info">
-                        <h3 className="myspace-spotlight__vn-title">
-                          {profileView.customization.featuredVn.title}
-                        </h3>
-                        <div className="myspace-spotlight__meta">
-                          {profileView.customization.featuredVn.developer && (
-                            <span>{profileView.customization.featuredVn.developer}</span>
-                          )}
-                          {profileView.customization.featuredVn.vndbId && (
-                            <span>VNDB {profileView.customization.featuredVn.vndbId}</span>
+                {profileView.customization.featuredVn && (() => {
+                  const featured = profileView.customization.featuredVn
+                  const matchedGame = games.find(
+                    (g) =>
+                      g.title.toLowerCase() === featured.title.toLowerCase() ||
+                      (featured.vndbId && g.source?.externalId === featured.vndbId)
+                  )
+                  const artUrl =
+                    sanitizeSafeImageUrl(matchedGame?.backgroundUrl) ||
+                    sanitizeSafeImageUrl(matchedGame?.coverUrl) ||
+                    sanitizeSafeImageUrl(featured.coverUrl)
+
+                  return (
+                    <div className="myspace-box myspace-box--spotlight">
+                      <div className="myspace-box__head">
+                        <h2 className="myspace-box__title">Featured Visual Novel</h2>
+                        <Badge tone="accent">Spotlight</Badge>
+                      </div>
+                      <div className="myspace-spotlight">
+                        <div className="myspace-spotlight__info">
+                          <h3 className="myspace-spotlight__vn-title">{featured.title}</h3>
+                          <div className="myspace-spotlight__meta">
+                            {featured.developer && <span>{featured.developer}</span>}
+                            {featured.vndbId && <span>VNDB {featured.vndbId}</span>}
+                          </div>
+                          {featured.blurb && (
+                            <p className="myspace-spotlight__blurb">“{featured.blurb}”</p>
                           )}
                         </div>
-                        {profileView.customization.featuredVn.blurb && (
-                          <p className="myspace-spotlight__blurb">
-                            “{profileView.customization.featuredVn.blurb}”
-                          </p>
+                        {artUrl && (
+                          <div className="myspace-spotlight__art-wrap" aria-hidden="true">
+                            <img
+                              src={artUrl}
+                              alt=""
+                              className="myspace-spotlight__art"
+                              onError={(e) => {
+                                (e.currentTarget.parentElement as HTMLElement)?.style.setProperty('display', 'none')
+                              }}
+                            />
+                            <div className="myspace-spotlight__art-gradient" />
+                          </div>
                         )}
                       </div>
                     </div>
-                  </div>
-                )}
+                  )
+                })()}
 
                 <div className="myspace-box">
                   <h2 className="myspace-box__title">Favorite Visual Novels Shelf</h2>
