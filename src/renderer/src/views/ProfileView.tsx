@@ -149,9 +149,10 @@ export function ProfileView({ userId }: { userId?: string | null }) {
     }
   }, [selfProfile, isViewingOther, userId, previewRole])
 
+  const friendsKey = social.friends.map((f) => `${f.id}:${f.status}`).join(',')
   useEffect(() => {
     void loadDisplayedProfile()
-  }, [loadDisplayedProfile, social.friends])
+  }, [loadDisplayedProfile, friendsKey])
 
   if (!social.user || !selfProfile) {
     return (

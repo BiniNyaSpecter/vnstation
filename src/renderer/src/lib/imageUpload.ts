@@ -7,7 +7,7 @@ export async function processImageUpload(
   file: File,
   maxWidth: number,
   maxHeight: number,
-  quality = 0.88
+  quality = 0.85
 ): Promise<string> {
   if (!file.type.startsWith('image/')) {
     throw new Error('Please select an image file (PNG, JPG, WebP, or GIF).')
@@ -22,12 +22,6 @@ export async function processImageUpload(
       img.onload = () => {
         let width = img.naturalWidth || img.width
         let height = img.naturalHeight || img.height
-
-        // If it's already compact, return directly
-        if (width <= maxWidth && height <= maxHeight && file.size < 180_000) {
-          resolve(reader.result as string)
-          return
-        }
 
         const scale = Math.min(1, maxWidth / width, maxHeight / height)
         width = Math.max(1, Math.round(width * scale))
@@ -46,13 +40,29 @@ export async function processImageUpload(
         ctx.imageSmoothingQuality = 'high'
         ctx.drawImage(img, 0, 0, width, height)
 
-        const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg'
+        // Prefer modern WebP (supports alpha channel + quality compression, ~15-70KB)
+        // Fall back to JPEG for opaque photos, or canvas default if needed
         try {
-          const dataUrl = canvas.toDataURL(mime, quality)
-          resolve(dataUrl)
+          const webpData = canvas.toDataURL('image/webp', quality)
+          if (webpData.startsWith('data:image/webp')) {
+            resolve(webpData)
+            return
+          }
         } catch {
-          resolve(reader.result as string)
+          // ignore
         }
+
+        try {
+          const jpegData = canvas.toDataURL('image/jpeg', quality)
+          if (jpegData.startsWith('data:image/jpeg')) {
+            resolve(jpegData)
+            return
+          }
+        } catch {
+          // ignore
+        }
+
+        resolve(canvas.toDataURL())
       }
       img.src = reader.result as string
     }

@@ -432,6 +432,7 @@ export function sanitizeSafeImageUrl(raw: unknown): string | null {
   const trimmed = raw.trim()
   if (!trimmed) return null
   if (trimmed.startsWith('data:image/')) {
+    if (trimmed.length > 2_500_000) return null
     const match = /^data:image\/(?:png|jpeg|jpg|webp|gif);base64,/i.exec(trimmed)
     if (match) {
       const b64 = trimmed.slice(match[0].length).replace(/\s+/g, '')

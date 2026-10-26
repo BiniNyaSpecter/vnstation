@@ -179,7 +179,16 @@ function useGamepadNavigation(): void {
       }
 
       const state = appStore.getState()
-      const pads = navigator.getGamepads ? navigator.getGamepads() : []
+      const rawPads = navigator.getGamepads ? navigator.getGamepads() : []
+      const pads = Array.from(rawPads)
+      const hasAnyPad = pads.some((p) => Boolean(p && p.connected))
+
+      if (!hasAnyPad) {
+        if (state.gamepadName !== null) state.setInputState({ gamepadName: null })
+        checkTimeout = window.setTimeout(schedule, 250)
+        return
+      }
+
       const { actions, activePadId } = tracker.poll(pads, now, state.prefs.gamepadConfirm)
       if (activePadId !== state.gamepadName) state.setInputState({ gamepadName: activePadId })
 
@@ -242,9 +251,16 @@ function useGamepadNavigation(): void {
       }
     }
 
+    const onGamepadChange = (): void => {
+      tracker.reset()
+      schedule()
+    }
+
     window.addEventListener('focus', onFocus)
     window.addEventListener('blur', onBlur)
     document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('gamepadconnected', onGamepadChange)
+    window.addEventListener('gamepaddisconnected', onGamepadChange)
     schedule()
 
     return () => {
@@ -253,6 +269,8 @@ function useGamepadNavigation(): void {
       window.removeEventListener('focus', onFocus)
       window.removeEventListener('blur', onBlur)
       document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('gamepadconnected', onGamepadChange)
+      window.removeEventListener('gamepaddisconnected', onGamepadChange)
       window.cancelAnimationFrame(frame)
     }
   }, [enabled])

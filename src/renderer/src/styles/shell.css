@@ -277,8 +277,7 @@
   padding: 0 var(--space-3);
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
-  background: rgba(var(--bg-rgb), 0.55);
-  backdrop-filter: blur(12px);
+  background: rgba(var(--bg-rgb), 0.85);
   color: var(--text-dim);
   transition: width 200ms var(--ease), border-color 140ms var(--ease);
   flex-shrink: 0;
@@ -445,7 +444,6 @@
     rgba(var(--bg-rgb), 0.94) 0%,
     rgba(var(--bg-rgb), 0.78) 100%
   );
-  backdrop-filter: blur(12px);
   color: var(--text-faint);
   font-size: var(--text-xs);
   pointer-events: none;
