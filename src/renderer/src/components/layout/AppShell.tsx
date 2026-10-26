@@ -36,6 +36,13 @@ export function AppShell() {
     route.name === 'details' ? state.games.find((g) => g.id === route.gameId) : undefined
   )
   const backdropGame = detailsGame ?? selected
+  const isGameRoute =
+    route.name === 'home' ||
+    route.name === 'details' ||
+    route.name === 'library' ||
+    route.name === 'recent' ||
+    route.name === 'favorites' ||
+    route.name === 'collections'
   const isHeroRoute =
     route.name === 'home' ||
     route.name === 'details' ||
@@ -105,7 +112,7 @@ export function AppShell() {
   return (
     <div className="shell" data-rail={navLayout === 'rail' ? (collapsed ? 'collapsed' : 'expanded') : undefined} data-nav={navLayout}>
       <WaveBackground />
-      {backdropGame && <Backdrop game={backdropGame} drift={route.name === 'details'} dimmed={!isHeroRoute} />}
+      {backdropGame && isGameRoute && <Backdrop game={backdropGame} drift={route.name === 'details'} dimmed={!isHeroRoute} />}
       {navLayout === 'rail' && <NavRail />}
       <main className="shell__main">
         <TopBar />

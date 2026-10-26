@@ -309,6 +309,7 @@ export function MessagesView({ conversationId }: { conversationId?: string | nul
                     type="button"
                     data-nav=""
                     data-entry-point={index === 0 ? '' : undefined}
+                    data-nav-default={index === 0 ? '' : undefined}
                     className={cx('messenger__convo-item', isSelected && 'is-active')}
                     onClick={() => {
                       setActiveConversation(convo.id)

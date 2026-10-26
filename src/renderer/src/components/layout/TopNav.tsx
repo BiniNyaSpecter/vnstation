@@ -5,8 +5,8 @@ import { useAppStore, type Route } from '@renderer/state/appStore'
 
 const ITEMS: Array<{ name: Route['name']; label: string }> = [
   { name: 'home', label: 'Home' },
-  { name: 'library', label: 'My library' },
-  { name: 'recent', label: 'Recently played' },
+  { name: 'library', label: 'Library' },
+  { name: 'recent', label: 'Recent' },
   { name: 'favorites', label: 'Favorites' },
   { name: 'collections', label: 'Collections' },
   { name: 'friends', label: 'Friends' },

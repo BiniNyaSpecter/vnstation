@@ -300,7 +300,9 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                 <Button
                   variant={editing ? 'ghost' : 'primary'}
                   icon="edit"
+                  entryPoint
                   data-entry-point=""
+                  data-nav-default=""
                   onClick={() => {
                     if (editing && selfProfile) syncEditorFromProfile(selfProfile)
                     setEditing(!editing)

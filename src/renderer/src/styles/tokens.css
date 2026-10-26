@@ -36,6 +36,15 @@
   --line: rgba(214, 210, 255, 0.12);
   --line-strong: rgba(214, 210, 255, 0.26);
   --hover: rgba(255, 255, 255, 0.07);
+
+  --surface-strong: var(--glass-strong);
+  --surface: var(--glass);
+  --surface-hover: color-mix(in srgb, var(--accent) 14%, rgba(255, 255, 255, 0.08));
+  --border: var(--line);
+  --border-strong: var(--line-strong);
+  --fg: var(--text);
+  --fg-muted: var(--text-dim);
+  --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 :root[data-theme='obsidian'] {
@@ -67,6 +76,15 @@
   --line: rgba(220, 220, 255, 0.11);
   --line-strong: rgba(220, 220, 255, 0.24);
   --hover: rgba(255, 255, 255, 0.07);
+
+  --surface-strong: var(--glass-strong);
+  --surface: var(--glass);
+  --surface-hover: color-mix(in srgb, var(--accent) 14%, rgba(255, 255, 255, 0.08));
+  --border: var(--line);
+  --border-strong: var(--line-strong);
+  --fg: var(--text);
+  --fg-muted: var(--text-dim);
+  --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 :root[data-theme='twilight'] {
@@ -98,6 +116,15 @@
   --line: rgba(242, 210, 255, 0.13);
   --line-strong: rgba(242, 210, 255, 0.27);
   --hover: rgba(255, 255, 255, 0.08);
+
+  --surface-strong: var(--glass-strong);
+  --surface: var(--glass);
+  --surface-hover: color-mix(in srgb, var(--accent) 14%, rgba(255, 255, 255, 0.08));
+  --border: var(--line);
+  --border-strong: var(--line-strong);
+  --fg: var(--text);
+  --fg-muted: var(--text-dim);
+  --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 :root[data-theme='daylight'] {
@@ -129,6 +156,15 @@
   --line: rgba(27, 29, 46, 0.12);
   --line-strong: rgba(27, 29, 46, 0.24);
   --hover: rgba(27, 29, 46, 0.06);
+
+  --surface-strong: var(--glass-strong);
+  --surface: var(--glass);
+  --surface-hover: color-mix(in srgb, var(--accent) 14%, rgba(27, 29, 46, 0.08));
+  --border: var(--line);
+  --border-strong: var(--line-strong);
+  --fg: var(--text);
+  --fg-muted: var(--text-dim);
+  --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 :root {
@@ -161,7 +197,10 @@
   /* Different radii for different roles: sharp covers, soft panels, pill controls. */
   --radius-cover: 5px;
   --radius-panel: 18px;
+  --radius-lg: 18px;
+  --radius-md: 12px;
   --radius-pill: 999px;
+  --shadow-card: 0 18px 45px rgba(0, 0, 0, 0.45);
 
   --rail-w: 232px;
   --rail-w-collapsed: 76px;

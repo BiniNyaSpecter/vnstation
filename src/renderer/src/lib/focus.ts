@@ -89,7 +89,9 @@ export function focusEntryPoint(): boolean {
   if (modal) {
     return focusTarget(visibleNavItems()[0])
   }
-  const preferred = document.querySelector<HTMLElement>('[data-nav-default]')
+  const preferred =
+    document.querySelector<HTMLElement>('[data-nav-default]') ??
+    document.querySelector<HTMLElement>('[data-entry-point]')
   const fallback = visibleNavItems().find((element) => !inRail(element) && !inTopBar(element))
   const anyVisible = visibleNavItems().find((element) => !inRail(element))
   return focusTarget(preferred ?? fallback ?? anyVisible)
@@ -127,7 +129,10 @@ export function moveFocus(direction: Direction): boolean {
 
   if (!(active instanceof HTMLElement) || !active.hasAttribute('data-nav')) {
     const pageItems = visibleNavItems().filter((element) => !inRail(element) && !inTopBar(element))
-    if (lastFocusedBox && pageItems.length > 0 && focusBestFromBox(lastFocusedBox, direction, pageItems)) {
+    const fromBox =
+      (active instanceof HTMLElement && active !== document.body ? active.getBoundingClientRect() : null) ??
+      lastFocusedBox
+    if (fromBox && pageItems.length > 0 && focusBestFromBox(fromBox, direction, pageItems)) {
       return true
     }
     return focusEntryPoint()

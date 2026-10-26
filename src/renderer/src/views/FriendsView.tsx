@@ -208,6 +208,7 @@ export function FriendsView() {
               value={codeInput}
               data-nav=""
               data-entry-point=""
+              data-nav-default=""
               onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
             />
             <Button variant="primary" type="submit" disabled={busy || !codeInput.trim()}>

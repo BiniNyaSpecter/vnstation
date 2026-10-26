@@ -291,6 +291,7 @@ export function SocialSection() {
                 <span className="field__label">Supabase Project URL (https://...)</span>
                 <input
                   type="url"
+                  className="input"
                   placeholder="https://your-project.supabase.co"
                   value={supabaseUrl}
                   data-nav=""
@@ -301,6 +302,7 @@ export function SocialSection() {
                 <span className="field__label">Supabase Public Anon Key (Encrypted via OS DPAPI)</span>
                 <input
                   type="password"
+                  className="input"
                   placeholder={
                     social.backendInfo.hasAnonKey ? '•••••••• (saved)' : 'eyJhbGciOiJIUzI1NiIs...'
                   }

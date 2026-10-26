@@ -482,6 +482,7 @@ function SteamCatalogDialog({
               className="input steam-catalog__search"
               placeholder="Filter by title or AppID…"
               value={filterText}
+              data-nav=""
               onChange={(e) => setFilterText(e.target.value)}
             />
           </div>

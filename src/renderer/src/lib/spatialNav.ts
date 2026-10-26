@@ -49,13 +49,16 @@ export function pickNext(from: Box, direction: Direction, candidates: readonly B
   candidates.forEach((box, index) => {
     const dx = centerX(box) - centerX(from)
     const dy = centerY(box) - centerY(from)
-    const ahead = direction === 'down' ? dy > 1 : dy < -1
+    const ahead =
+      direction === 'down'
+        ? dy > 1 || box.top >= from.top + from.height - 2
+        : dy < -1 || box.top + box.height <= from.top + 2
     if (!ahead) return
 
     // Ignore controls that sit on the same visual row as `from`.
     const overlap = Math.min(from.top + from.height, box.top + box.height) - Math.max(from.top, box.top)
     const minH = Math.min(from.height, box.height)
-    if (minH > 0 && overlap > minH * 0.4) return
+    if (minH > 0 && overlap > minH * 0.5) return
 
     valid.push({ index, box, absDx: Math.abs(dx), absDy: Math.abs(dy) })
   })
@@ -63,7 +66,7 @@ export function pickNext(from: Box, direction: Direction, candidates: readonly B
   if (valid.length === 0) return -1
 
   const minDy = Math.min(...valid.map((candidate) => candidate.absDy))
-  const rowTolerance = Math.max(from.height, 48)
+  const rowTolerance = Math.max(from.height, 56)
 
   for (const candidate of valid) {
     if (candidate.absDy > minDy + rowTolerance) continue

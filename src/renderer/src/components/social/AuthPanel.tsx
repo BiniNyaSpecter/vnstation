@@ -92,6 +92,7 @@ export function AuthPanel({ subtitle }: { subtitle?: string }) {
             className={cx('social-auth__tab', tab === 'register' && 'is-active')}
             data-nav=""
             data-entry-point={tab === 'register' ? '' : undefined}
+            data-nav-default={tab === 'register' ? '' : undefined}
             onClick={() => {
               setTab('register')
               setError(null)
@@ -106,6 +107,7 @@ export function AuthPanel({ subtitle }: { subtitle?: string }) {
             className={cx('social-auth__tab', tab === 'login' && 'is-active')}
             data-nav=""
             data-entry-point={tab === 'login' ? '' : undefined}
+            data-nav-default={tab === 'login' ? '' : undefined}
             onClick={() => {
               setTab('login')
               setError(null)

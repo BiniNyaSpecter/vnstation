@@ -93,7 +93,11 @@ function useGlobalShortcuts(): void {
         }
       } else if (event.key in ARROWS) {
         // Only take over when focus is on the page or a navigable element, never inside menus.
-        const onPage = !active || active === document.body || active.hasAttribute('data-nav')
+        const onPage =
+          !active ||
+          active === document.body ||
+          active.hasAttribute('data-nav') ||
+          Boolean(active.closest('.shell__main'))
         if (onPage) {
           if (
             active instanceof HTMLSelectElement ||
