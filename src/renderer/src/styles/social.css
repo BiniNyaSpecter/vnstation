@@ -566,17 +566,84 @@
 
 .myspace-banner {
   position: relative;
-  padding: 28px 28px 24px;
-  background-size: cover;
-  background-position: center;
+  min-height: 172px;
+  padding: 30px 32px 26px;
+  overflow: hidden;
   border-bottom: 1px solid var(--profile-border);
+  background: var(--profile-surface, rgba(14, 18, 38, 0.95));
 }
 
-.myspace-banner__overlay {
+.myspace-banner__art-layer {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(8, 11, 22, 0.28) 0%, rgba(8, 11, 22, 0.78) 100%);
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   pointer-events: none;
+  z-index: 0;
+}
+
+.myspace-banner__art-img {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 78%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 25%;
+  opacity: 0.95;
+  filter: saturate(1.06) contrast(1.02);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    transparent 10%,
+    rgba(0, 0, 0, 0.04) 22%,
+    rgba(0, 0, 0, 0.22) 38%,
+    rgba(0, 0, 0, 0.62) 60%,
+    rgba(0, 0, 0, 0.92) 80%,
+    #000 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    transparent 10%,
+    rgba(0, 0, 0, 0.04) 22%,
+    rgba(0, 0, 0, 0.22) 38%,
+    rgba(0, 0, 0, 0.62) 60%,
+    rgba(0, 0, 0, 0.92) 80%,
+    #000 100%
+  );
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+.myspace-banner__art-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      var(--profile-surface, rgba(14, 18, 38, 0.96)) 0%,
+      var(--profile-surface, rgba(14, 18, 38, 0.92)) 25%,
+      rgba(var(--bg-rgb, 14, 18, 38), 0.72) 48%,
+      rgba(var(--bg-rgb, 14, 18, 38), 0.18) 75%,
+      rgba(var(--bg-rgb, 14, 18, 38), 0.42) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(var(--bg-rgb, 14, 18, 38), 0.35) 0%,
+      transparent 30%,
+      transparent 70%,
+      rgba(var(--bg-rgb, 14, 18, 38), 0.65) 100%
+    );
+  pointer-events: none;
+}
+
+.myspace-banner__art-gradient {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .myspace-banner__content {
@@ -606,18 +673,21 @@
   font-size: 26px;
   font-weight: 700;
   color: #ffffff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85), 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 .myspace-banner__handle {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
 }
 
 .myspace-banner__headline {
   margin: 6px 0 0;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.88);
+  color: rgba(255, 255, 255, 0.95);
   font-style: italic;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85);
 }
 
 .myspace-banner__chips {
@@ -633,10 +703,12 @@
   gap: 6px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(10, 14, 28, 0.65);
+  background: rgba(10, 14, 28, 0.72);
   border: 1px solid var(--profile-border);
+  backdrop-filter: blur(4px);
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .myspace-chip--playing {
@@ -649,10 +721,12 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 6px;
-  padding: 12px 16px;
+  padding: 12px 18px;
   border-radius: 14px;
-  background: rgba(8, 12, 26, 0.76);
+  background: rgba(8, 12, 26, 0.84);
   border: 1px solid var(--profile-border);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
 }
 
 .myspace-banner__code-label {

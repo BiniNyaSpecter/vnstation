@@ -98,7 +98,7 @@ export function ProfileView({ userId }: { userId?: string | null }) {
     const file = e.target.files?.[0]
     if (!file) return
     try {
-      const dataUrl = await processImageUpload(file, 1280, 480, 0.85)
+      const dataUrl = await processImageUpload(file, 1600, 600, 0.86)
       setBackgroundUrl(dataUrl)
       showToast('Banner header image loaded successfully.', 'success')
     } catch (err) {
@@ -298,34 +298,32 @@ export function ProfileView({ userId }: { userId?: string | null }) {
   return (
     <div className="lib social-profile-view">
       <div className="lib__scroll" data-scroll-y="">
-        {/* Top Action Bar */}
-        <div className="social-profile__toolbar">
-          <div className="social-profile__toolbar-left">
-            {isViewingOther ? (
-              <Button icon="arrowLeft" entryPoint onClick={() => navigate({ name: 'profile' })}>
-                Back to My Profile
-              </Button>
-            ) : (
-              <div className="social-profile__preview-bar" role="group" aria-label="Preview profile as">
-                <span className="social-profile__preview-label">Preview as:</span>
-                {(['self', 'friend', 'stranger'] as const).map((role) => (
-                  <button
-                    key={role}
-                    type="button"
-                    data-nav=""
-                    className={cx('social-pill-btn', previewRole === role && 'is-active')}
-                    onClick={() => setPreviewRole(role)}
-                  >
-                    {role === 'self' ? 'Self' : role === 'friend' ? 'Friend' : 'Stranger (Public)'}
-                  </button>
-                ))}
-              </div>
-            )}
+        {/* Standard View Header */}
+        <header className="lib__head">
+          <div className="lib__heading">
+            <h1 className="lib__title">
+              {isViewingOther ? `${profileView.displayName}’s Profile` : 'My Profile'}
+            </h1>
+            <span className="lib__count">@{profileView.username}</span>
           </div>
 
           <div className="social-profile__toolbar-right">
             {!isViewingOther ? (
               <>
+                <div className="social-profile__preview-bar" role="group" aria-label="Preview profile as">
+                  <span className="social-profile__preview-label">Preview:</span>
+                  {(['self', 'friend', 'stranger'] as const).map((role) => (
+                    <button
+                      key={role}
+                      type="button"
+                      data-nav=""
+                      className={cx('social-pill-btn', previewRole === role && 'is-active')}
+                      onClick={() => setPreviewRole(role)}
+                    >
+                      {role === 'self' ? 'Self' : role === 'friend' ? 'Friend' : 'Stranger'}
+                    </button>
+                  ))}
+                </div>
                 <Button
                   variant={editing ? 'ghost' : 'primary'}
                   icon="edit"
@@ -345,6 +343,9 @@ export function ProfileView({ userId }: { userId?: string | null }) {
               </>
             ) : (
               <>
+                <Button icon="arrowLeft" entryPoint onClick={() => navigate({ name: 'profile' })}>
+                  Back to My Profile
+                </Button>
                 {profileView.viewerRelationship === 'friend' && (
                   <Button
                     variant="primary"
@@ -357,7 +358,7 @@ export function ProfileView({ userId }: { userId?: string | null }) {
               </>
             )}
           </div>
-        </div>
+        </header>
 
         {/* Live Profile Editor Drawer */}
         {editing && !isViewingOther && (
@@ -752,13 +753,27 @@ export function ProfileView({ userId }: { userId?: string | null }) {
           }
         >
           {/* Profile Banner */}
-          <div
-            className="myspace-banner"
-            style={{
-              backgroundImage: safeBanner ? `url("${safeBanner}"), ${themeDef.bannerGradient}` : themeDef.bannerGradient
-            }}
-          >
-            <div className="myspace-banner__overlay" />
+          <div className="myspace-banner">
+            <div className="myspace-banner__art-layer" aria-hidden="true">
+              {safeBanner ? (
+                <>
+                  <img
+                    src={safeBanner}
+                    alt=""
+                    className="myspace-banner__art-img"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLElement).style.display = 'none'
+                    }}
+                  />
+                  <div className="myspace-banner__art-scrim" />
+                </>
+              ) : (
+                <div
+                  className="myspace-banner__art-gradient"
+                  style={{ background: themeDef.bannerGradient }}
+                />
+              )}
+            </div>
             <div className="myspace-banner__content">
               <Avatar
                 displayName={profileView.displayName}
