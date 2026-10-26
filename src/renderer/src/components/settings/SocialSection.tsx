@@ -1,5 +1,10 @@
 import { useState } from 'react'
-import type { PresenceState, ProfilePrivacySettings, ProfileVisibility } from '@shared/social'
+import {
+  DEFAULT_SUPABASE_URL,
+  type PresenceState,
+  type ProfilePrivacySettings,
+  type ProfileVisibility
+} from '@shared/social'
 import { Badge } from '@renderer/components/ui/Badge'
 import { Button } from '@renderer/components/ui/Button'
 import { Select } from '@renderer/components/ui/Select'
@@ -27,7 +32,9 @@ export function SocialSection() {
   const showToast = useAppStore((state) => state.showToast)
 
   const [showBackendForm, setShowBackendForm] = useState(false)
-  const [supabaseUrl, setSupabaseUrl] = useState(social.backendInfo.supabaseUrl || '')
+  const [supabaseUrl, setSupabaseUrl] = useState(
+    social.backendInfo.supabaseUrl || DEFAULT_SUPABASE_URL
+  )
   const [anonKey, setAnonKey] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -292,7 +299,7 @@ export function SocialSection() {
                 <input
                   type="url"
                   className="input"
-                  placeholder="https://your-project.supabase.co"
+                  placeholder={DEFAULT_SUPABASE_URL}
                   value={supabaseUrl}
                   data-nav=""
                   onChange={(e) => setSupabaseUrl(e.target.value)}

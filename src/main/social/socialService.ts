@@ -1,8 +1,11 @@
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   AVATAR_PRESETS,
   DEFAULT_PRIVACY_SETTINGS,
   DEFAULT_PROFILE_CUSTOMIZATION,
+  DEFAULT_SUPABASE_URL,
   FRIEND_CODE_REGEX,
   normalizeFriendCode,
   PROFILE_THEMES,
@@ -306,6 +309,36 @@ export interface SocialServiceOptions {
   now?: () => number
 }
 
+function loadLocalEnvFile(): Record<string, string> {
+  try {
+    const envPath = join(process.cwd(), '.env')
+    if (existsSync(envPath)) {
+      const content = readFileSync(envPath, 'utf8')
+      const env: Record<string, string> = {}
+      for (const line of content.split(/\r?\n/)) {
+        const trimmed = line.trim()
+        if (!trimmed || trimmed.startsWith('#')) continue
+        const eqIdx = trimmed.indexOf('=')
+        if (eqIdx > 0) {
+          const key = trimmed.slice(0, eqIdx).trim()
+          let val = trimmed.slice(eqIdx + 1).trim()
+          if (
+            (val.startsWith('"') && val.endsWith('"')) ||
+            (val.startsWith("'") && val.endsWith("'"))
+          ) {
+            val = val.slice(1, -1)
+          }
+          env[key] = val
+        }
+      }
+      return env
+    }
+  } catch {
+    // ignore missing or unreadable .env file
+  }
+  return {}
+}
+
 export class SocialService implements SocialApi {
   private readonly db: Database
   private readonly cipher: SecretCipher
@@ -374,12 +407,28 @@ export class SocialService implements SocialApi {
   }
 
   private getBackendConfig(): StoredBackendConfig {
+    const fileEnv = loadLocalEnvFile()
     const stored = this.readEncryptedSetting<StoredBackendConfig>(KEY_BACKEND_CFG)
-    const envUrl = process.env['VNSTATION_SUPABASE_URL'] ?? process.env['VITE_SUPABASE_URL'] ?? ''
-    const envKey = process.env['VNSTATION_SUPABASE_ANON_KEY'] ?? process.env['VITE_SUPABASE_ANON_KEY'] ?? ''
+    const envUrl =
+      process.env['VNSTATION_SUPABASE_URL'] ??
+      process.env['VITE_SUPABASE_URL'] ??
+      fileEnv['VNSTATION_SUPABASE_URL'] ??
+      fileEnv['VITE_SUPABASE_URL'] ??
+      DEFAULT_SUPABASE_URL
+    const envKey =
+      process.env['VNSTATION_SUPABASE_ANON_KEY'] ??
+      process.env['VITE_SUPABASE_ANON_KEY'] ??
+      fileEnv['VNSTATION_SUPABASE_ANON_KEY'] ??
+      fileEnv['VITE_SUPABASE_ANON_KEY'] ??
+      ''
+
     if (stored && stored.url && stored.anonKey) return stored
     if (envUrl && envKey) return { url: envUrl, anonKey: envKey, enabled: true }
-    return { url: stored?.url ?? '', anonKey: stored?.anonKey ?? '', enabled: Boolean(stored?.enabled) }
+    return {
+      url: stored?.url || envUrl,
+      anonKey: stored?.anonKey ?? envKey,
+      enabled: Boolean(stored?.enabled || (envUrl && envKey && stored?.enabled !== false))
+    }
   }
 
   private getBackendInfo(): SocialBackendInfo {
@@ -387,7 +436,7 @@ export class SocialService implements SocialApi {
     const isSupabase = Boolean(cfg.enabled && cfg.url && cfg.anonKey)
     return {
       mode: isSupabase ? 'supabase' : 'local-sandbox',
-      supabaseUrl: cfg.url,
+      supabaseUrl: cfg.url || DEFAULT_SUPABASE_URL,
       hasAnonKey: Boolean(cfg.anonKey),
       enabled: cfg.enabled
     }
@@ -1551,7 +1600,7 @@ export class SocialService implements SocialApi {
   }
 
   async configureBackend(input: SupabaseConfigInput): Promise<SocialSessionState> {
-    const url = input.url.trim()
+    const url = input.url.trim() || DEFAULT_SUPABASE_URL
     const anonKey = input.anonKey.trim()
     if (url) {
       const parsed = new URL(url)
@@ -1564,9 +1613,9 @@ export class SocialService implements SocialApi {
     }
     const previousCfg = this.getBackendConfig()
     const nextCfg: StoredBackendConfig = {
-      url,
+      url: url || DEFAULT_SUPABASE_URL,
       anonKey: anonKey || previousCfg.anonKey,
-      enabled: Boolean(input.enabled && url && (anonKey || previousCfg.anonKey))
+      enabled: Boolean(input.enabled && (url || DEFAULT_SUPABASE_URL) && (anonKey || previousCfg.anonKey))
     }
     this.writeEncryptedSetting(KEY_BACKEND_CFG, nextCfg)
     this.emit({ type: 'state-changed' })

@@ -339,6 +339,9 @@ export interface ReportAbuseInput {
   details: string
 }
 
+/** Official cloud backend project URL for VNStation social features. */
+export const DEFAULT_SUPABASE_URL = 'https://bwoyrcjpjhwahlhjkldl.supabase.co'
+
 export interface SupabaseConfigInput {
   url: string
   anonKey: string
