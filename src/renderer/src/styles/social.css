@@ -568,82 +568,50 @@
   position: relative;
   min-height: 172px;
   padding: 30px 32px 26px;
-  overflow: hidden;
+  background-size: cover;
+  background-position: center 25%;
+  background-repeat: no-repeat;
   border-bottom: 1px solid var(--profile-border);
-  background: var(--profile-surface, rgba(14, 18, 38, 0.95));
-}
-
-.myspace-banner__art-layer {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
   overflow: hidden;
-  pointer-events: none;
-  z-index: 0;
 }
 
-.myspace-banner__art-img {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 78%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center 25%;
-  opacity: 0.95;
-  filter: saturate(1.06) contrast(1.02);
-  -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 0%,
-    transparent 10%,
-    rgba(0, 0, 0, 0.04) 22%,
-    rgba(0, 0, 0, 0.22) 38%,
-    rgba(0, 0, 0, 0.62) 60%,
-    rgba(0, 0, 0, 0.92) 80%,
-    #000 100%
-  );
-  mask-image: linear-gradient(
-    to right,
-    transparent 0%,
-    transparent 10%,
-    rgba(0, 0, 0, 0.04) 22%,
-    rgba(0, 0, 0, 0.22) 38%,
-    rgba(0, 0, 0, 0.62) 60%,
-    rgba(0, 0, 0, 0.92) 80%,
-    #000 100%
-  );
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-}
-
-.myspace-banner__art-scrim {
+.myspace-banner__overlay {
   position: absolute;
   inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(8, 11, 22, 0.24) 0%, rgba(8, 11, 22, 0.68) 100%);
+}
+
+.myspace-banner--has-image .myspace-banner__overlay {
   background:
+    /* Signature VNStation multi-stop horizontal gradient scrim:
+       0% - 22%: Deep opaque protection ensuring avatar & identity text have maximum readability
+       22% - 66%: Smooth, seamless fade revealing the banner artwork
+       66% - 100%: Vibrant artwork showcase with gentle edge protection for the friend code badge */
     linear-gradient(
       90deg,
-      var(--profile-surface, rgba(14, 18, 38, 0.96)) 0%,
-      var(--profile-surface, rgba(14, 18, 38, 0.92)) 25%,
-      rgba(var(--bg-rgb, 14, 18, 38), 0.72) 48%,
-      rgba(var(--bg-rgb, 14, 18, 38), 0.18) 75%,
-      rgba(var(--bg-rgb, 14, 18, 38), 0.42) 100%
+      rgba(var(--bg-rgb, 12, 14, 28), 0.96) 0%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.93) 22%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.70) 44%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.24) 66%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.06) 84%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.32) 100%
     ),
+    /* Bottom vignette: seamless dark grounding meeting the card divider */
+    linear-gradient(
+      0deg,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.94) 0%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.60) 24%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.15) 52%,
+      transparent 76%
+    ),
+    /* Top rim vignette: subtle depth */
     linear-gradient(
       180deg,
-      rgba(var(--bg-rgb, 14, 18, 38), 0.35) 0%,
-      transparent 30%,
-      transparent 70%,
-      rgba(var(--bg-rgb, 14, 18, 38), 0.65) 100%
+      rgba(var(--bg-rgb, 12, 14, 28), 0.72) 0%,
+      rgba(var(--bg-rgb, 12, 14, 28), 0.20) 26%,
+      transparent 56%
     );
-  pointer-events: none;
-}
-
-.myspace-banner__art-gradient {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
 }
 
 .myspace-banner__content {
