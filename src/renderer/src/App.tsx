@@ -100,6 +100,13 @@ function useGlobalShortcuts(): void {
           Boolean(active.closest('.shell__main'))
         if (onPage) {
           if (
+            active instanceof HTMLSelectElement &&
+            (event.key === 'ArrowLeft' || event.key === 'ArrowRight')
+          ) {
+            // Let the Select handle cycling options horizontally
+            return
+          }
+          if (
             active instanceof HTMLSelectElement ||
             (active instanceof HTMLInputElement && active.type === 'range')
           ) {
@@ -139,12 +146,25 @@ function useGamepadNavigation(): void {
     let frame = 0
     let active = true
     let scheduled = false
+    let checkTimeout: number | undefined
 
     const schedule = (): void => {
       if (!active || scheduled) return
       if (document.visibilityState !== 'visible' || !document.hasFocus()) {
         tracker.reset()
+        if (document.visibilityState === 'visible' && !checkTimeout) {
+          checkTimeout = window.setTimeout(() => {
+            checkTimeout = undefined
+            if (active && document.hasFocus()) {
+              schedule()
+            }
+          }, 200)
+        }
         return
+      }
+      if (checkTimeout) {
+        window.clearTimeout(checkTimeout)
+        checkTimeout = undefined
       }
       scheduled = true
       frame = window.requestAnimationFrame(step)
@@ -170,7 +190,20 @@ function useGamepadNavigation(): void {
         const menuOpen = Boolean(document.querySelector('.menu__list[role="menu"]'))
         for (const action of actions) {
           if (action.type === 'move') {
-            if (moveFocus(action.direction)) playSound('move')
+            const activeElem = document.activeElement
+            if (
+              activeElem instanceof HTMLSelectElement &&
+              (action.direction === 'left' || action.direction === 'right')
+            ) {
+              activeElem.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                  key: action.direction === 'left' ? 'ArrowLeft' : 'ArrowRight',
+                  bubbles: true
+                })
+              )
+            } else if (moveFocus(action.direction)) {
+              playSound('move')
+            }
           } else if (action.type === 'confirm') {
             const wasSelect = document.activeElement instanceof HTMLSelectElement
             if (activateFocused() && wasSelect) playSound('select')
@@ -216,6 +249,7 @@ function useGamepadNavigation(): void {
 
     return () => {
       active = false
+      if (checkTimeout) window.clearTimeout(checkTimeout)
       window.removeEventListener('focus', onFocus)
       window.removeEventListener('blur', onBlur)
       document.removeEventListener('visibilitychange', onVisibility)

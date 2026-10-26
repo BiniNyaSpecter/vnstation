@@ -182,6 +182,10 @@ export function moveFocus(direction: Direction): boolean {
       document.querySelector<HTMLElement>('.topbar [aria-current="page"]') ??
       document.querySelector<HTMLElement>('.topbar [data-nav]')
     if (focusTarget(activeTopTab ?? undefined)) return true
+    const activeRailTab =
+      document.querySelector<HTMLElement>(`${RAIL_SELECTOR} [aria-current="page"]`) ??
+      document.querySelector<HTMLElement>(`${RAIL_SELECTOR} [data-nav]`)
+    if (focusTarget(activeRailTab ?? undefined)) return true
   }
 
   if (direction === 'left') {

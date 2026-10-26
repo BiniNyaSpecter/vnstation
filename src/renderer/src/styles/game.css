@@ -81,24 +81,25 @@
   background:
     linear-gradient(
       90deg,
-      rgba(var(--bg-rgb), 0.88) 0%,
-      rgba(var(--bg-rgb), 0.62) 28%,
-      rgba(var(--bg-rgb), 0.22) 56%,
-      rgba(var(--bg-rgb), 0.04) 78%,
+      rgba(var(--bg-rgb), 1) 0%,
+      rgba(var(--bg-rgb), 0.94) 22%,
+      rgba(var(--bg-rgb), 0.68) 44%,
+      rgba(var(--bg-rgb), 0.24) 66%,
+      rgba(var(--bg-rgb), 0.04) 84%,
       rgba(var(--bg-rgb), 0) 100%
     ),
     linear-gradient(
       0deg,
-      rgba(var(--bg-rgb), 0.86) 0%,
-      rgba(var(--bg-rgb), 0.56) 15%,
-      rgba(var(--bg-rgb), 0.22) 32%,
-      rgba(var(--bg-rgb), 0.05) 48%,
-      rgba(var(--bg-rgb), 0) 64%
+      rgba(var(--bg-rgb), 1) 0%,
+      rgba(var(--bg-rgb), 0.88) 18%,
+      rgba(var(--bg-rgb), 0.45) 36%,
+      rgba(var(--bg-rgb), 0.1) 52%,
+      rgba(var(--bg-rgb), 0) 68%
     ),
     linear-gradient(
       180deg,
-      rgba(var(--bg-rgb), 0.64) 0%,
-      rgba(var(--bg-rgb), 0.22) 12%,
+      rgba(var(--bg-rgb), 0.8) 0%,
+      rgba(var(--bg-rgb), 0.3) 12%,
       rgba(var(--bg-rgb), 0) 26%
     );
 }

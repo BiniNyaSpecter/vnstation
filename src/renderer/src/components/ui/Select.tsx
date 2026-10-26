@@ -30,7 +30,14 @@ export function Select({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && options.length > 0) {
+            if (options.length === 0) return
+            if (event.key === 'ArrowLeft') {
+              event.preventDefault()
+              const currentIndex = options.findIndex((option) => option.value === value)
+              const prevIndex = (currentIndex - 1 + options.length) % options.length
+              playSound('select')
+              onChange(options[prevIndex].value)
+            } else if (event.key === 'ArrowRight' || event.key === 'Enter') {
               event.preventDefault()
               const currentIndex = options.findIndex((option) => option.value === value)
               const nextIndex = (currentIndex + 1) % options.length

@@ -1,7 +1,7 @@
 {
   "name": "vnstation",
   "productName": "VNStation",
-  "version": "1.0.0",
+  "version": "1.0.0-beta.1",
   "description": "A console-style personal visual novel library and launcher.",
   "private": true,
   "license": "UNLICENSED",

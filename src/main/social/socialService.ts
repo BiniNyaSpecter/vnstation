@@ -409,20 +409,24 @@ export class SocialService implements SocialApi {
 
   private getBackendConfig(): StoredBackendConfig {
     const isTest = Boolean(process.env['VITEST']) || process.env['NODE_ENV'] === 'test'
-    const fileEnv = loadLocalEnvFile()
     const stored = this.readEncryptedSetting<StoredBackendConfig>(KEY_BACKEND_CFG)
+    if (isTest) {
+      if (stored) return stored
+      return { url: '', anonKey: '', enabled: false }
+    }
+    const fileEnv = loadLocalEnvFile()
     const envUrl =
       process.env['VNSTATION_SUPABASE_URL'] ??
       process.env['VITE_SUPABASE_URL'] ??
       fileEnv['VNSTATION_SUPABASE_URL'] ??
       fileEnv['VITE_SUPABASE_URL'] ??
-      (isTest ? '' : DEFAULT_SUPABASE_URL)
+      DEFAULT_SUPABASE_URL
     const envKey =
       process.env['VNSTATION_SUPABASE_ANON_KEY'] ??
       process.env['VITE_SUPABASE_ANON_KEY'] ??
       fileEnv['VNSTATION_SUPABASE_ANON_KEY'] ??
       fileEnv['VITE_SUPABASE_ANON_KEY'] ??
-      (isTest ? '' : DEFAULT_SUPABASE_ANON_KEY)
+      DEFAULT_SUPABASE_ANON_KEY
 
     if (stored && stored.url && stored.anonKey) return stored
     if (stored && stored.enabled === false) {

@@ -903,33 +903,31 @@
 
 .myspace-spotlight__art-wrap {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 58%;
-  min-width: 360px;
-  max-width: 100%;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   pointer-events: none;
   z-index: 1;
-  border-top-right-radius: inherit;
-  border-bottom-right-radius: inherit;
+  border-radius: inherit;
   -webkit-mask-image: linear-gradient(
     to right,
     transparent 0%,
-    rgba(0, 0, 0, 0.04) 15%,
-    rgba(0, 0, 0, 0.18) 32%,
-    rgba(0, 0, 0, 0.5) 52%,
-    rgba(0, 0, 0, 0.82) 75%,
+    transparent 20%,
+    rgba(0, 0, 0, 0.04) 36%,
+    rgba(0, 0, 0, 0.22) 52%,
+    rgba(0, 0, 0, 0.62) 70%,
+    rgba(0, 0, 0, 0.94) 86%,
     #000 100%
   );
   mask-image: linear-gradient(
     to right,
     transparent 0%,
-    rgba(0, 0, 0, 0.04) 15%,
-    rgba(0, 0, 0, 0.18) 32%,
-    rgba(0, 0, 0, 0.5) 52%,
-    rgba(0, 0, 0, 0.82) 75%,
+    transparent 20%,
+    rgba(0, 0, 0, 0.04) 36%,
+    rgba(0, 0, 0, 0.22) 52%,
+    rgba(0, 0, 0, 0.62) 70%,
+    rgba(0, 0, 0, 0.94) 86%,
     #000 100%
   );
   -webkit-mask-size: 100% 100%;
@@ -939,7 +937,10 @@
 }
 
 .myspace-spotlight__art {
-  width: 100%;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 72%;
   height: 100%;
   object-fit: cover;
   object-position: center 25%;
@@ -953,16 +954,18 @@
   background:
     linear-gradient(
       to right,
-      rgba(10, 14, 28, 0.6) 0%,
-      rgba(10, 14, 28, 0.25) 45%,
-      transparent 80%
+      var(--card-bg, #0b0f19) 0%,
+      var(--card-bg, #0b0f19) 20%,
+      rgba(var(--bg-rgb, 11, 15, 25), 0.8) 42%,
+      rgba(var(--bg-rgb, 11, 15, 25), 0.25) 68%,
+      transparent 92%
     ),
     linear-gradient(
       180deg,
-      rgba(10, 14, 28, 0.45) 0%,
-      transparent 30%,
-      transparent 70%,
-      rgba(10, 14, 28, 0.55) 100%
+      rgba(var(--bg-rgb, 11, 15, 25), 0.4) 0%,
+      transparent 28%,
+      transparent 72%,
+      rgba(var(--bg-rgb, 11, 15, 25), 0.5) 100%
     );
   pointer-events: none;
 }

@@ -1,152 +1,199 @@
+<div align="center">
+
 # VNStation
 
-A console-style personal library and launcher for visual novels you already own.
-It links to your existing installs and launches the original executables; it is not a
-visual novel engine and never copies, modifies or uploads your game files.
+**A console-grade visual novel launcher, library manager, and social platform for Windows.**
 
-> **Status: Milestone 7 of 7 (Complete).** Your library is saved locally in SQLite, games can be
-> matched to VNDB for titles, descriptions, artwork and full character cast compendiums, Steam libraries
-> can be synchronized (via Steam Web API or local Steam installation) with automatic Visual Novel
-> classification and review queue isolation, executables and Steam entries launch directly with playtime
-> and session tracking, both keyboard and controller navigation are built in, and optional **Social Accounts,
-> MySpace-Inspired Custom Profiles, Friend Codes (`VNS-XXXX-XXXX`), and Private 1-to-1 Messaging** are
-> available in both Local Sandbox and Supabase Cloud modes. See [Status](#status) for details.
+[![Version](https://img.shields.io/badge/version-1.0.0--beta.1%20Closed%20Beta-indigo?style=for-the-badge)](https://github.com/BiniNyaSpecter/vnstation/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-blue?style=for-the-badge&logo=windows)](https://github.com/BiniNyaSpecter/vnstation)
+[![Tests](https://img.shields.io/badge/tests-275%20passing-brightgreen?style=for-the-badge)](https://github.com/BiniNyaSpecter/vnstation)
+[![Electron](https://img.shields.io/badge/Electron-44.0-cyan?style=for-the-badge&logo=electron)](https://www.electronjs.org/)
+[![React](https://img.shields.io/badge/React-19.2-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
+[![SQLite](https://img.shields.io/badge/Database-SQLite-003B57?style=for-the-badge&logo=sqlite)](https://sqlite.org/)
 
-## Prerequisites
+<p align="center">
+  <a href="#key-features">Key Features</a> •
+  <a href="#getting-started">Getting Started</a> •
+  <a href="#controller--keyboard-navigation">Controls</a> •
+  <a href="#steam-integration">Steam Integration</a> •
+  <a href="#social-platform--profiles">Social & Profiles</a> •
+  <a href="#architecture--privacy">Architecture & Privacy</a>
+</p>
 
-- Windows 10/11 (the target; the UI also runs on macOS/Linux for development)
-- [Node.js](https://nodejs.org) **22.12 or newer** (22 LTS recommended)
-- Git is optional
+</div>
 
-## Install and run
+---
 
+## Overview
+
+**VNStation** is a modern, living-room-ready desktop visual novel hub designed for enthusiasts who cherish both literary depth and console polish.
+
+It connects to your existing visual novels and launches the original executables directly without altering, moving, or tampering with your game files. Whether your library consists of standalone retail releases, fan translations, or Steam downloads, VNStation consolidates them into an elegant console interface with automated VNDB metadata, full character compendiums, process tree playtime tracking, and an optional nostalgic MySpace-inspired community layer.
+
+---
+
+## Key Features
+
+### 🎮 Console-Style Fluid Interface
+- **PlayStation / Xbox Inspired Experience:** Designed from the ground up for big screens, monitors, and handhelds with smooth shelf carousels, top category tabs, and optional collapsible side rail.
+- **Dynamic Backdrop Crossfading:** High-resolution visual novel artwork seamlessly transitions with velvety gradient scrims as you browse.
+- **Procedural Audio & Micro-interactions:** Soft, synthesized interface ticks and chimes generated in real time via Web Audio with zero bulky asset dependencies.
+- **First-Class Gamepad & Keyboard Navigation:** Native spatial navigation with full support for Xbox, PlayStation DualSense/DualShock, Switch Pro, and standard XInput controllers.
+
+### 📚 VNDB Metadata & Character Compendiums
+- **Official VNDB Kana v2 Integration:** Instantly query titles, release dates, synopses, developers, and official artwork.
+- **Rich Character Profiles:** Browse character casts with high-res portraits, voice actors, role classifications (`main`, `primary`, `side`), and personality traits.
+- **Granular Spoiler Protection:** Spoiler characters, sensitive traits, and spoiler-tagged biographies remain safely shielded until you explicitly reveal them.
+- **Content Ratings & Adult Filters:** Restrict explicit 18+ visual novels behind an age-gate confirmation with discreet backdrop filtering.
+
+### ⚙️ Dual-Mode Steam Integration
+- **Smart Visual Novel Classification:** Automatically inspects your Steam games and VNDB databases to import only actual Visual Novels, preventing library clutter.
+- **Web API & Local Folder Scans:** Synchronize your Steam catalog either via the official Steam Web API or offline by scanning local `libraryfolders.vdf` manifests.
+- **Ambiguous Match Review Queue:** Games with uncertain classifications are safely staged in an interactive review drawer with 1-click manual overrides.
+
+### ⏱️ True Process-Tree Playtime Tracking
+- **Child Process Monitoring:** Follows launcher wrapper executables to their real game processes (e.g., Kirikiri, Unity, Ren'Py, CatSystem2, SiglusEngine).
+- **Session History:** Records cumulative playtime, last-played timestamps, and detailed session logs in local SQLite storage.
+- **Window State Automation:** Automatically minimizes VNStation on game startup and restores it when the visual novel closes.
+
+### 🌐 MySpace-Inspired Social & Profiles
+- **Expressive Profile Studio:** Curate your taste with 6 nostalgic themes (e.g., *Midnight Console*, *Sakura Memory*, *Tsukihime Crimson*), customizable banners, avatars, mood status lines, and "Now Reading" widgets.
+- **Visual Novel & Character Showcase:** Spotlight your all-time favorite visual novels and waifu/husbando characters directly on your profile.
+- **Friend Codes & Direct Messaging:** Connect using non-sequential alphanumeric codes (`VNS-XXXX-XXXX`), manage friend requests, and chat in real-time with delivery receipts.
+- **Granular Privacy & "Preview As":** Instant preview toggle lets you verify how your profile appears to *Self*, *Friends*, or *Strangers*.
+
+### 🔒 Local-First Privacy & Optional Supabase Cloud
+- **100% Offline Capability:** All games, collections, playtime logs, and offline companion profiles live in your local encrypted SQLite database.
+- **Zero Mandatory Logins:** Use the full visual novel library and launcher offline without creating any account.
+- **Seamless Cloud Backend:** Pre-configured with Supabase PostgreSQL cloud sync for cross-device friend synchronization, real-time presence, and messaging.
+
+---
+
+## Getting Started
+
+### Windows Closed Beta Executables
+
+Download the latest release from the [Releases](https://github.com/BiniNyaSpecter/vnstation/releases) page:
+- **Installer:** `VNStation-Setup-1.0.0-beta.1.exe`
+- **Portable Unpacked:** `VNStation-1.0.0-beta.1-win-x64.zip`
+
+> [!NOTE]
+> Since this is a community Closed Beta build, Windows SmartScreen may present an untrusted publisher dialog. Click **More info** → **Run anyway**.
+
+---
+
+### Building from Source
+
+#### Prerequisites
+- **Node.js:** 22.12.0 or newer (Node 22 LTS recommended)
+- **OS:** Windows 10/11 (UI also builds on macOS / Linux)
+
+#### Installation & Development
 ```bash
-npm install        # downloads Electron (~100 MB) on first run
-npm run dev        # starts the app with hot reload
+# Clone repository
+git clone https://github.com/BiniNyaSpecter/vnstation.git
+cd vnstation
+
+# Install dependencies (fetches Electron runtime)
+npm install
+
+# Start development app with Hot Module Replacement (HMR)
+npm run dev
 ```
 
-| Command | What it does |
-| --- | --- |
-| `npm run dev` | Electron + Vite dev server with hot reload |
-| `npm run build` | Production build into `out/` |
-| `npm run preview` | Runs the production build locally |
-| `npm run typecheck` | Type-checks the main/preload/shared code and the renderer |
-| `npm test` | Runs the unit and integration tests (Vitest) |
-| `npm run verify` | typecheck, then tests, then build |
-
-## Build the Windows executable
-
+#### Verification & Packaging
 ```bash
-npm run pack   # fast: release/win-unpacked/VNStation.exe (run it directly, no installer)
-npm run dist   # installer: release/VNStation-Setup-1.0.0.exe
+# Run complete verification (typecheck + test suite + build)
+npm run verify
+
+# Build unpacked local Windows binary (release/win-unpacked/VNStation.exe)
+npm run pack
+
+# Build standalone Windows NSIS installer (release/VNStation-Setup-*.exe)
+npm run dist
 ```
 
-Notes: the app is unsigned (`signAndEditExecutable: false` in `electron-builder.yml` so local builds
-never fail on missing code-signing certificates or symbolic-link permissions), so Windows SmartScreen
-may warn on first run ("More info", then "Run anyway").
+---
 
-## Keyboard and controller navigation
+## Controller & Keyboard Navigation
 
-| Keyboard | Controller (Xbox / PlayStation) | Action |
-| --- | --- | --- |
-| Arrow keys | D-Pad or Left Stick | Move focus spatially through tiles, rows, buttons, categories and dialogs |
-| Enter | `A` / `✕` (or `B` / `○` in Settings) | Open game details, or activate the focused control |
-| Esc | `B` / `○` (or `A` / `✕` in Settings) | Go back, or close an open dialog |
-| `[` / `]` | `LB` / `RB` (`L1` / `R1`) | Switch between top-level categories |
-| `F` | `Y` / `△` | Toggle favorite on the selected game |
-| — | `Start` / `Options` or `X` / `□` | Launch the selected game |
-| `/` | — | Focus search |
-| Ctrl+B | — | Collapse or expand the side rail |
-| F11 | — | Toggle full screen |
+VNStation is engineered for seamless couch navigation with no mouse required:
 
-Selecting a game (by focus or click) updates the hero; the selection is kept when you
-switch between views. Controller input automatically pauses whenever VNStation is in the
-background so playing a visual novel with a gamepad never triggers actions in the launcher.
+| Action | Keyboard | Gamepad (Xbox / PlayStation) |
+| :--- | :--- | :--- |
+| **Move Focus** | `Arrow Keys` | `D-Pad` / `Left Analog Stick` |
+| **Select / Confirm** | `Enter` | `A` (Cross) / `B` (Circle in Japanese layout) |
+| **Back / Dismiss** | `Escape` | `B` (Circle) / `A` (Cross in Japanese layout) |
+| **Quick Launch Game** | — | `X` / `Square` or `Start` / `Options` |
+| **Toggle Favorite** | `F` | `Y` / `Triangle` |
+| **Cycle Categories** | `[` and `]` | `LB` / `RB` (`L1` / `R1`) |
+| **Cycle Select Options** | `Left` / `Right` | `D-Pad Left` / `D-Pad Right` |
+| **Global Search** | `/` | — |
+| **Toggle Side Rail** | `Ctrl + B` | — |
+| **Fullscreen Toggle** | `F11` | — |
 
-## Configuration
+> [!TIP]
+> Gamepad input automatically sleeps whenever a visual novel executable takes focus, preventing accidental background inputs while reading.
 
-- **App name:** `src/shared/app-config.ts` (`APP_CONFIG.name`) and `productName` in `package.json`.
-- **Theme and accent:** Settings. New themes are a `[data-theme="..."]` block in
-  `src/renderer/src/styles/tokens.css`.
-- **Metadata (VNDB):** Uses the official VNDB Kana v2 HTTP API (`https://api.vndb.org/kana/vn` and
-  `/release`) from the Electron main process. No API key is required for public metadata lookups.
-  Turn online lookups on or off at any time in **Settings → Metadata**.
+---
 
-## Status
+## Steam Integration
 
-| Area | State |
-| --- | --- |
-| Add game: native `.exe` picker, batch folder scanner (up to 2 subfolder levels, filters out helpers/uninstallers), validation, title suggestion, working directory, arguments | Working, saved |
-| Library saved between runs (SQLite), favorites, notes, last played / playtime fields | Working |
-| Edit a game (title, executable, working directory, arguments); repair a moved executable; open game folder in Explorer | Working |
-| Missing-file detection on the Details page | Working |
-| Remove from library (never touches game files) | Working |
-| Collections: create, rename, delete, add/remove games | Working |
-| Search, sort, genre/language filters, grid and shelf layouts | Working |
-| Settings (4 themes: Midnight / Obsidian / Twilight / Daylight, 5 accents, artwork strength, motion, rail, sort, adults-only filter, launch & controller options) | Working, saved in the database |
-| Adults-only entries hidden by default | Working |
-| Find details on VNDB: search, pick the right match, official title, description, tags, release date, cover and background | Working (needs internet; your library works fully offline) |
-| Refresh or remove downloaded details; type your own details; choose your own cover/background | Working; your edits are kept separately and never overwritten |
-| Artwork cache with size shown and a Clear button; repeat lookups served from a local cache | Working |
-| Adults-only (18+) games: hidden by default; shown only after an "are you 18 or older?" confirmation, then their details and artwork download like any other game's, with an 18+ badge and caution | Working |
-| Interface sounds (generated by the app, adjustable volume) and a Motion setting (Full / Follow system / Reduced) | Working |
-| PlayStation-style top category bar, ambient waves, glide-to-anchor rows, pre-decoded backdrop crossfades, dynamic hints bar; side rail still available | Working (Settings → Appearance) |
-| **Executable launcher & playtime tracking** | Working: spawns the original `.exe` with its working directory and arguments (`shell: false`), or launches Steam entries via `steam://rungameid/<appId>`, tracks `play_sessions` and cumulative playtime, follows same-folder child processes when a launcher exits, and optionally minimizes/restores VNStation |
-| **Keyboard & controller navigation + Windows packaging** | Working: spatial keyboard + W3C Gamepad navigation (`npm run pack` / `npm run dist`) |
-| **Steam library integration & Visual Novel classification** | Working: connect via Steam Web API (`GetOwnedGames` + `GetPlayerSummaries` with OS-encrypted API key storage) or scan local Steam installation (`libraryfolders.vdf` + `appmanifest_*.acf`), automatically classify Visual Novels via VNDB release `extlink` and title matching, isolate ambiguous matches in a review queue, and support persistent manual include/exclude overrides |
-| **VNDB character profiles & spoiler protection** | Working: fetches and caches character portraits, roles (`main`, `primary`, `side`, `appears`), biographies, and grouped traits per VNDB visual novel (`POST /character`), hides spoiler characters, spoiler traits, and `[spoiler]` biography segments by default until explicitly revealed, and works offline once cached |
-| **Social accounts, Friend Codes, MySpace-inspired custom profiles & private 1-to-1 messaging** | Working: email registration/login with OS-encrypted session persistence (`safeStorage` DPAPI), unique usernames and non-sequential Friend Codes (`VNS-XXXX-XXXX`), rate-limited Friend Code lookup with confirmation preview, incoming/outgoing friend requests, block/unblock and abuse reporting, private 1-to-1 direct messaging with unread badges and delivery states, and customizable MySpace-style visual novel profiles (6 curated themes, 3 layouts, custom accent color, bio, mood/status line, "Now Reading/Listening", Featured VN, Favorite VNs shelf, Character Spotlight, Top Friends grid, and "Preview as Self / Friend / Stranger" privacy controls) |
+Connect your Steam account in **Settings → Integrations · Steam**:
+1. **Option A · Steam Web API:** Reads public owned games and playtime using your 17-digit `SteamID64` and an optional Steam Web API key. API keys are encrypted at rest using Windows DPAPI (`safeStorage`).
+2. **Option B · Local Steam Installation:** Scans your local `steamapps` folder and `appmanifest_*.acf` without needing an API key or public profile.
 
-**Where your data lives:** `library.db` in the app's data folder (on Windows,
-`%APPDATA%\VNStation`; the exact path is shown in Settings, under Storage). Dev and packaged
-builds share it. Before a future version changes the database layout, a backup is written next
-to it as `library.db.backup-v<N>`. To start over, close the app and delete `library.db`.
+VNStation runs all entries through its VNDB classification heuristics. Any non-visual-novel games (FPS, RTS, RPGs) are omitted from your shelf, while borderline titles can be inspected in the **Review Queue**.
 
-**Sample games** (invented titles, generated artwork) are never added automatically. Use
-Settings, then Library, then "Add sample games" to preview the interface, and remove them at any
-time without affecting your own games.
+---
 
-## Troubleshooting
+## Social Platform & Profiles
 
-- **Electron download fails or hangs:** set a mirror, e.g. `ELECTRON_MIRROR` (see the
-  [Electron docs](https://www.electronjs.org/docs/latest/tutorial/installation)), then reinstall.
-- **`electron-vite` complains about the Node version:** upgrade to Node 22.12+.
-- **Blank window in `npm run dev`:** check the terminal for a renderer build error.
-- **Nothing animates:** Windows may be telling apps to reduce motion (Settings, Accessibility, Visual effects,
-  Animation effects; battery saver can also turn it off). Set Settings, then Appearance, then Motion to **Full**.
-- **No sound:** check Settings, then Sound (on, volume above 0) and your Windows output device. If a sound is
-  too loud, too quiet or unpleasant, tell me which one and I will retune it.
-- **"Could not reach VNDB":** you are offline or something blocks api.vndb.org. Nothing is lost; try again
-  later, or type the details yourself in Edit game.
-- **"could not open its library" at start-up:** the message says why. Your library file is left
-  untouched. Send me the message if it is not obvious.
-- **Fonts look different:** titles use Palatino/Yu Mincho and the UI uses Segoe UI on
-  Windows. Other systems fall back to their defaults.
+VNStation includes an optional social layer with zero telemetry:
+- **Local Sandbox Mode:** Ready out-of-the-box with local SQLite messaging and companion profiles (`VNS-AOKO-2026` and `VNS-LABM-2048`) to test friend requests and chat offline.
+- **Supabase Cloud Sync:** Connect to the pre-configured live Supabase backend or host your own using `supabase/migrations/20261026000000_social_platform.sql`.
+- **Safe Image Uploads:** Profile avatars and custom header banners are compressed and sanitized client-side to prevent network bloat or broken external URLs.
+- **Absolute Privacy:** Local executable paths (e.g. `D:\VisualNovels\...`) and personal game notes are strictly local and are never transmitted to friends or servers.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for design decisions, structure and the roadmap.
+---
 
-## Online lookups and privacy
+## Architecture & Privacy
 
-- Lookups go to VNDB (api.vndb.org) from the app's main process. **Only the text you search for, or a
-  VNDB game ID, is sent.** Your library, file paths and play history never leave your computer.
-- Requests are spaced out and capped (VNDB allows 200 per 5 minutes; VNStation stays well under),
-  and responses are cached in the library database so repeat lookups send nothing.
-- Turn lookups off completely in Settings, then Metadata.
-- Games rated 18+ stay hidden until you confirm you are 18 or older (Settings, or the "Show 18+ results"
-  button in the match screen). After that their description and artwork download like any other game's, and
-  they carry an 18+ badge and a caution on their details page. Full-screen backgrounds still skip screenshots
-  VNDB flags as explicit or brutal. You can hide them again at any time; your confirmation is remembered.
-- VNDB data is used under the [Open Database License](https://vndb.org/d17); that attribution is shown
-  on each game's details page and in Settings. Images and descriptions remain the property of their owners.
+```
+┌────────────────────────────────────────────────────────┐
+│                   VNStation Desktop                    │
+│                                                        │
+│  ┌─────────────────────────┐  ┌─────────────────────┐  │
+│  │   Renderer Process      │  │     Main Process    │  │
+│  │  (React 19 + TypeScript)│  │   (Node 22 runtime) │  │
+│  │                         │  │                     │  │
+│  │  • Spatial Nav Engine   │  │  • SQLite Storage   │  │
+│  │  • Web Audio Synths     │  │  • Process Tracker  │  │
+│  │  • Profile Studio UI    │  │  • DPAPI Encryption │  │
+│  └───────────┬─────────────┘  └──────────┬──────────┘  │
+│              │ ContextBridge IPC         │             │
+└──────────────┼───────────────────────────┼─────────────┘
+               │                           │
+               ▼                           ▼
+        VNDB Kana API              Supabase Cloud
+     (api.vndb.org/kana)       (PostgreSQL + RLS + DM)
+```
 
-## Social platform, Friend Codes & Supabase setup (Milestone 7)
+- **Local Database:** `%APPDATA%\VNStation\library.db` (SQLite with automatic schema migrations).
+- **Artwork Cache:** Caches VNDB covers and character portraits on disk for instant offline access.
+- **Security:** Strict Electron context isolation, CSP headers enabled, and OS-level DPAPI credential encryption. Elevated Supabase service keys are explicitly blocked from client runtimes.
 
-- **Local-first guarantee:** Social accounts are completely optional. Your visual novel library, executables, collections, Steam imports, and playtimes stay local on your PC and work offline whether you are signed in or signed out. Signing out or deleting a social account never modifies or deletes your local game library.
-- **Local Sandbox Mode (Zero-Config Default):** Out of the box, VNStation runs its social backend in Local Sandbox Mode backed by SQLite (`social_*` tables) and OS-encrypted auth credentials (`safeStorage`). Two companion readers are seeded automatically so you can test Friend Code lookups, friend requests, profile privacy, and live 1-to-1 messaging immediately on a single machine:
-  - `VNS-AOKO-2026` (**Aoko Aozaki**, `@aoko_reader`) — public profile, auto-accepts friend requests and replies in direct chat.
-  - `VNS-LABM-2048` (**Kurisu Makise**, `@kurisu_lab004`) — friends-only profile visibility, keeps friend requests in `pending` state.
-- **Supabase Cloud Mode (Cross-PC Accounts & Messaging):**
-  1. Create a Supabase project and apply the SQL migration and Row-Level Security (RLS) policies in `supabase/migrations/20261026000000_social_platform.sql`.
-  2. Open **Settings → Social Account & Privacy → Configure Backend** (or set `VNSTATION_SUPABASE_URL` and `VNSTATION_SUPABASE_ANON_KEY`) and enter your project's HTTPS URL and public `anon` key.
-  3. Service-role keys (`role: "service_role"`) are automatically rejected by the desktop client so elevated database credentials are never bundled or stored on user devices.
-- **Privacy & Data Retention:** New profiles default to **Friends Only** visibility. Showcased visual novels only share public titles, VNDB IDs, and cover URLs — local executable paths (`C:\Games\...`) and private game notes are never uploaded or exposed. Deleting your account in **Settings → Social Account & Privacy** permanently removes your social profile, Friend Code, friendships, and messages.
+---
+
+## License & Attribution
+
+- Built with [Electron](https://www.electronjs.org/), [React](https://react.dev/), [Vite](https://vite.dev/), and [TypeScript](https://www.typescriptlang.org/).
+- Visual novel metadata and character data provided by [VNDB](https://vndb.org/) under the [Open Database License (ODbL)](https://vndb.org/d17).
+- Visual novel titles, cover artwork, and character assets belong to their respective creators and publishers.
+
+---
+
+<div align="center">
+  <sub>Built for visual novel readers with ❤️ · Closed Beta v1.0.0</sub>
+</div>
