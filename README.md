@@ -35,35 +35,35 @@ It connects to your existing visual novels and launches the original executables
 
 ## Key Features
 
-### 🎮 Console-Style Fluid Interface
+### Console-Style Fluid Interface
 - **PlayStation / Xbox Inspired Experience:** Designed from the ground up for big screens, monitors, and handhelds with smooth shelf carousels, top category tabs, and optional collapsible side rail.
 - **Dynamic Backdrop Crossfading:** High-resolution visual novel artwork seamlessly transitions with velvety gradient scrims as you browse.
 - **Procedural Audio & Micro-interactions:** Soft, synthesized interface ticks and chimes generated in real time via Web Audio with zero bulky asset dependencies.
 - **First-Class Gamepad & Keyboard Navigation:** Native spatial navigation with full support for Xbox, PlayStation DualSense/DualShock, Switch Pro, and standard XInput controllers.
 
-### 📚 VNDB Metadata & Character Compendiums
+### VNDB Metadata & Character Compendiums
 - **Official VNDB Kana v2 Integration:** Instantly query titles, release dates, synopses, developers, and official artwork.
 - **Rich Character Profiles:** Browse character casts with high-res portraits, voice actors, role classifications (`main`, `primary`, `side`), and personality traits.
 - **Granular Spoiler Protection:** Spoiler characters, sensitive traits, and spoiler-tagged biographies remain safely shielded until you explicitly reveal them.
 - **Content Ratings & Adult Filters:** Restrict explicit 18+ visual novels behind an age-gate confirmation with discreet backdrop filtering.
 
-### ⚙️ Dual-Mode Steam Integration
+### Dual-Mode Steam Integration
 - **Smart Visual Novel Classification:** Automatically inspects your Steam games and VNDB databases to import only actual Visual Novels, preventing library clutter.
 - **Web API & Local Folder Scans:** Synchronize your Steam catalog either via the official Steam Web API or offline by scanning local `libraryfolders.vdf` manifests.
 - **Ambiguous Match Review Queue:** Games with uncertain classifications are safely staged in an interactive review drawer with 1-click manual overrides.
 
-### ⏱️ True Process-Tree Playtime Tracking
+### True Process-Tree Playtime Tracking
 - **Child Process Monitoring:** Follows launcher wrapper executables to their real game processes (e.g., Kirikiri, Unity, Ren'Py, CatSystem2, SiglusEngine).
 - **Session History:** Records cumulative playtime, last-played timestamps, and detailed session logs in local SQLite storage.
 - **Window State Automation:** Automatically minimizes VNStation on game startup and restores it when the visual novel closes.
 
-### 🌐 MySpace-Inspired Social & Profiles
+### MySpace-Inspired Social & Profiles
 - **Expressive Profile Studio:** Curate your taste with 6 nostalgic themes (e.g., *Midnight Console*, *Sakura Memory*, *Tsukihime Crimson*), customizable banners, avatars, mood status lines, and "Now Reading" widgets.
 - **Visual Novel & Character Showcase:** Spotlight your all-time favorite visual novels and waifu/husbando characters directly on your profile.
 - **Friend Codes & Direct Messaging:** Connect using non-sequential alphanumeric codes (`VNS-XXXX-XXXX`), manage friend requests, and chat in real-time with delivery receipts.
 - **Granular Privacy & "Preview As":** Instant preview toggle lets you verify how your profile appears to *Self*, *Friends*, or *Strangers*.
 
-### 🔒 Local-First Privacy & Optional Supabase Cloud
+### Local-First Privacy & Optional Supabase Cloud
 - **100% Offline Capability:** All games, collections, playtime logs, and offline companion profiles live in your local encrypted SQLite database.
 - **Zero Mandatory Logins:** Use the full visual novel library and launcher offline without creating any account.
 - **Seamless Cloud Backend:** Pre-configured with Supabase PostgreSQL cloud sync for cross-device friend synchronization, real-time presence, and messaging.
@@ -195,5 +195,5 @@ VNStation includes an optional social layer with zero telemetry:
 ---
 
 <div align="center">
-  <sub>Built for visual novel readers with ❤️ · Closed Beta v1.0.0</sub>
+  <sub>A Love letter for old Ass Visual Novel · Closed Beta v1.0.0</sub>
 </div>
