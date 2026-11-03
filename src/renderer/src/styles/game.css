@@ -138,6 +138,11 @@
 }
 
 .hero__title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   margin-bottom: var(--space-2);
   font-family: var(--font-display);
   font-size: var(--text-hero);
@@ -229,7 +234,6 @@
   /* Grid items default to min-width:auto, which lets long titles stretch the tile. */
   min-width: 0;
   text-align: left;
-  transition: width 200ms var(--ease);
 }
 
 .tile.is-selected {
@@ -444,7 +448,7 @@
 .tile__source {
   position: absolute;
   bottom: 8px;
-  left: 8px;
+  right: 8px;
   padding: 2px 7px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;

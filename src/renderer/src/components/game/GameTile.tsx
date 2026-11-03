@@ -64,7 +64,7 @@ export function GameTile({ game, selected, tabbable, labelMode = 'selected', onS
             18+
           </span>
         )}
-        {game.librarySource !== 'manual' && !running && (
+        {game.librarySource !== 'manual' && (
           <span className="tile__source" title={game.librarySource === 'steam-api' ? 'Imported from Steam Web API' : 'Imported from local Steam library'}>
             Steam
           </span>

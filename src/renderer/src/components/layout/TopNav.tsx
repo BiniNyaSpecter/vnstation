@@ -73,7 +73,14 @@ export function TopNav() {
       <span
         className="topnav__bar"
         aria-hidden="true"
-        style={mark ? { transform: `translateX(${mark.left}px)`, width: mark.width, opacity: 1 } : { opacity: 0 }}
+        style={
+          mark
+            ? {
+                transform: `translateX(${mark.left}px) scaleX(${Math.max(0.05, mark.width / 100)})`,
+                opacity: 1
+              }
+            : { opacity: 0 }
+        }
       />
     </nav>
   )

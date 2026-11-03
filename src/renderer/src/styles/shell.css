@@ -82,10 +82,16 @@
   flex-direction: column;
   gap: var(--space-1);
   list-style: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .rail__list--foot {
-  margin-top: auto;
+  flex: 0 0 auto;
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
 }
 
 .rail__item {
@@ -213,14 +219,17 @@
   display: flex;
   align-items: center;
   align-self: stretch;
-  gap: clamp(4px, 1vw, 14px);
+  gap: clamp(3px, 0.7vw, 10px);
   margin-left: var(--space-2);
   min-width: 0;
   flex: 1 1 auto;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .topnav__item {
-  padding: 5px 11px;
+  flex: 0 0 auto;
+  padding: 5px 10px;
   margin-inline: 0;
   border-radius: var(--radius-pill);
   color: var(--text-dim);
@@ -250,11 +259,13 @@
   position: absolute;
   bottom: 6px;
   left: 0;
+  width: 100px;
   height: 3px;
   border-radius: 3px;
   background: var(--accent);
   box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 70%, transparent);
-  transition: transform 360ms var(--ease), width 360ms var(--ease), opacity 200ms;
+  transform-origin: left center;
+  transition: transform 360ms var(--ease), opacity 200ms;
   pointer-events: none;
 }
 
@@ -272,20 +283,20 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  width: 170px;
+  width: clamp(142px, 14vw, 196px);
   height: 38px;
   padding: 0 var(--space-3);
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   background: rgba(var(--bg-rgb), 0.85);
   color: var(--text-dim);
-  transition: width 200ms var(--ease), border-color 140ms var(--ease);
+  transition: border-color 140ms var(--ease), box-shadow 140ms var(--ease), background-color 140ms var(--ease);
   flex-shrink: 0;
 }
 
 .search:focus-within {
-  width: 220px;
   border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent);
   color: var(--text);
 }
 
@@ -316,6 +327,19 @@
   }
 }
 
+@media (max-width: 1280px) {
+  .topbar {
+    gap: var(--space-3);
+  }
+  .topnav {
+    gap: 2px;
+  }
+  .topnav__item {
+    padding: 5px 8px;
+    font-size: var(--text-xs);
+  }
+}
+
 @media (max-width: 1180px) {
   .topbar .btn span {
     display: none;
@@ -325,13 +349,20 @@
     padding: 0;
   }
   .search {
-    width: 150px;
+    width: 140px;
   }
   .topnav {
-    gap: var(--space-4);
+    gap: 2px;
   }
   .topnav__item {
-    font-size: var(--text-md);
+    padding: 4px 7px;
+    font-size: var(--text-xs);
+  }
+}
+
+@media (max-width: 920px) {
+  .clock {
+    display: none;
   }
 }
 

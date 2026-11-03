@@ -13,10 +13,15 @@ export interface MenuItem {
 /** A small popover menu: Escape / outside-click to close, arrow keys to move. */
 export function Menu({ items, label = 'More options' }: { items: MenuItem[]; label?: string }) {
   const [open, setOpen] = useState(false)
+  const [alignRight, setAlignRight] = useState(false)
   const root = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
+    const rect = root.current?.getBoundingClientRect()
+    if (rect && typeof window !== 'undefined') {
+      setAlignRight(rect.left + 240 > window.innerWidth - 16)
+    }
     const menuItems = (): HTMLButtonElement[] =>
       Array.from(root.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])
     menuItems()[0]?.focus()
@@ -62,7 +67,12 @@ export function Menu({ items, label = 'More options' }: { items: MenuItem[]; lab
         <Icon name="more" />
       </button>
       {open && (
-        <div className="menu__list" role="menu" aria-label={label} onKeyDown={onListKeyDown}>
+        <div
+          className={cx('menu__list', alignRight && 'menu__list--right')}
+          role="menu"
+          aria-label={label}
+          onKeyDown={onListKeyDown}
+        >
           {items.map((item) => (
             <button
               key={item.id}
