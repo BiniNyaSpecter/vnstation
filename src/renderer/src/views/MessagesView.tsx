@@ -98,10 +98,10 @@ export function MessagesView({ conversationId }: { conversationId?: string | nul
     void loadMessages(selectedId)
   }, [selectedId, social.user, loadMessages])
 
-  // Real-time incoming message subscription for the active thread
+  // Real-time incoming message subscription & cloud polling for the active thread
   useEffect(() => {
     if (!selectedId || !social.user) return
-    return services.social.subscribe((event) => {
+    const unsub = services.social.subscribe((event) => {
       if (event.type === 'message-received' && event.conversationId === selectedId) {
         setMessages((prev) => {
           if (prev.some((m) => m.id === event.message.id)) return prev
@@ -114,6 +114,19 @@ export function MessagesView({ conversationId }: { conversationId?: string | nul
         })
       }
     })
+    const pollTimer = window.setInterval(() => {
+      void refreshSocial()
+      void services.social
+        .listMessages(selectedId, { limit: PAGE_SIZE })
+        .then((list) => {
+          setMessages((prev) => (list.length !== prev.length ? list : prev))
+        })
+        .catch(() => undefined)
+    }, 8_000)
+    return () => {
+      unsub()
+      window.clearInterval(pollTimer)
+    }
   }, [selectedId, social.user, refreshSocial])
 
   useEffect(() => {

@@ -609,4 +609,220 @@ describe('Milestone 7 — Social Accounts, Friend Codes, Custom Profiles & Autho
       })
     ).rejects.toThrow(/service_role/i)
   })
+
+  it('16. synchronizes Friend Code lookup, friend requests, and messages across separate devices via Supabase Cloud', async () => {
+    const cloudProfiles = new Map<string, Record<string, unknown>>()
+    const cloudFriendships = new Map<string, Record<string, unknown>>()
+    const cloudConversations = new Map<string, Record<string, unknown>>()
+    const cloudMessages: Array<Record<string, unknown>> = []
+
+    const userAId = '9ef53741-0b43-4a71-8fd6-d62e5632d33d'
+    const userBId = '9a578e8c-b54f-4ebe-8047-dca30051fb55'
+
+    const mockFetcher = async (url: string, init?: RequestInit): Promise<Response> => {
+      const parsed = new URL(url)
+      const path = parsed.pathname
+      const search = parsed.searchParams
+      const method = (init?.method ?? 'GET').toUpperCase()
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined
+
+      const jsonRes = (data: unknown, status = 200) =>
+        new Response(JSON.stringify(data), {
+          status,
+          headers: { 'Content-Type': 'application/json' }
+        })
+
+      // Simulate GoTrue signup returning session: null (when mailer confirmation was configured)
+      // followed by immediate password token exchange
+      if (path === '/auth/v1/signup') {
+        const email = String(body.email || '')
+        const id = email.startsWith('lshietra') ? userAId : userBId
+        return jsonRes({ user: { id, email, email_confirmed_at: null } })
+      }
+      if (path === '/auth/v1/token') {
+        const email = String(body.email || 'user@example.com')
+        const id = email.startsWith('lshietra') ? userAId : userBId
+        const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
+        const payload = Buffer.from(
+          JSON.stringify({ role: 'authenticated', sub: id, exp: Math.floor(Date.now() / 1000) + 3600 })
+        ).toString('base64url')
+        return jsonRes({
+          access_token: `${header}.${payload}.sig`,
+          refresh_token: `refresh-${id}`,
+          expires_in: 3600,
+          user: { id, email, email_confirmed_at: new Date().toISOString() }
+        })
+      }
+      if (path === '/rest/v1/rpc/sync_client_profile') {
+        const row: Record<string, unknown> = {
+          user_id: body.p_user_id,
+          username: body.p_username,
+          display_name: body.p_display_name,
+          friend_code: body.p_friend_code,
+          bio: body.p_bio ?? '',
+          avatar_preset: body.p_avatar_preset ?? 'aoko',
+          avatar_url: body.p_avatar_url ?? null,
+          presence: body.p_presence ?? 'online',
+          currently_playing: body.p_currently_playing ?? null,
+          customization: body.p_customization,
+          privacy: body.p_privacy,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+        cloudProfiles.set(String(row.user_id), row)
+        return jsonRes(row)
+      }
+      if (path === '/rest/v1/profiles') {
+        if (method === 'GET') {
+          const all = Array.from(cloudProfiles.values())
+          const fcIlike = search.get('friend_code')
+          if (fcIlike?.startsWith('ilike.')) {
+            const target = fcIlike.slice(6).toUpperCase()
+            return jsonRes(all.filter((p) => String(p.friend_code).toUpperCase() === target))
+          }
+          const uIlike = search.get('username')
+          if (uIlike?.startsWith('ilike.')) {
+            const target = uIlike.slice(6).toLowerCase()
+            return jsonRes(all.filter((p) => String(p.username).toLowerCase() === target))
+          }
+          const uidEq = search.get('user_id')
+          if (uidEq?.startsWith('eq.')) {
+            const target = uidEq.slice(3)
+            return jsonRes(all.filter((p) => String(p.user_id) === target))
+          }
+          if (uidEq?.startsWith('in.(')) {
+            const ids = new Set(uidEq.slice(4, -1).split(','))
+            return jsonRes(all.filter((p) => ids.has(String(p.user_id))))
+          }
+          return jsonRes(all)
+        }
+        return jsonRes([])
+      }
+      if (path === '/rest/v1/friendships') {
+        if (method === 'POST') {
+          const [low, high] =
+            String(body.requester_id) < String(body.recipient_id)
+              ? [String(body.requester_id), String(body.recipient_id)]
+              : [String(body.recipient_id), String(body.requester_id)]
+          const key = `${low}:${high}`
+          const row = { ...body, pair_low: low, pair_high: high }
+          cloudFriendships.set(key, row)
+          return jsonRes([row])
+        }
+        if (method === 'PATCH') {
+          const low = (search.get('pair_low') ?? '').replace(/^eq\./, '')
+          const high = (search.get('pair_high') ?? '').replace(/^eq\./, '')
+          const key = `${low}:${high}`
+          const existing = cloudFriendships.get(key)
+          if (existing) {
+            cloudFriendships.set(key, { ...existing, ...body })
+          }
+          return jsonRes([])
+        }
+        if (method === 'GET') {
+          return jsonRes(Array.from(cloudFriendships.values()))
+        }
+      }
+      if (path === '/rest/v1/conversations') {
+        if (method === 'POST') {
+          const key = `${body.pair_low}:${body.pair_high}`
+          const existing = cloudConversations.get(key) ?? body
+          cloudConversations.set(key, existing)
+          return jsonRes([existing])
+        }
+        if (method === 'GET') {
+          return jsonRes(Array.from(cloudConversations.values()))
+        }
+        return jsonRes([])
+      }
+      if (path === '/rest/v1/conversation_participants') {
+        return jsonRes([])
+      }
+      if (path === '/rest/v1/messages') {
+        if (method === 'POST') {
+          cloudMessages.push(body)
+          return jsonRes([body])
+        }
+        if (method === 'GET') {
+          return jsonRes([...cloudMessages].reverse())
+        }
+      }
+      return jsonRes([])
+    }
+
+    const dirB = mkdtempSync(join(tmpdir(), 'vnstation-social-test-b-'))
+    const dbB = new Database(join(dirB, 'library.db'))
+    migrate(dbB)
+
+    try {
+      const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
+      const anonPayload = Buffer.from(JSON.stringify({ role: 'anon' })).toString('base64url')
+      const anonJwt = `${header}.${anonPayload}.sig`
+
+      const deviceA = new SocialService({
+        db,
+        cipher: createTestSecretCipher(),
+        fetcher: mockFetcher,
+        seedDemoCompanions: true
+      })
+      const deviceB = new SocialService({
+        db: dbB,
+        cipher: createTestSecretCipher(),
+        fetcher: mockFetcher,
+        seedDemoCompanions: true
+      })
+
+      await deviceA.configureBackend({ url: 'https://bwoyrcjpjhwahlhjkldl.supabase.co', anonKey: anonJwt, enabled: true })
+      await deviceB.configureBackend({ url: 'https://bwoyrcjpjhwahlhjkldl.supabase.co', anonKey: anonJwt, enabled: true })
+
+      const stateA = await deviceA.register({
+        email: 'lshietra@example.com',
+        password: 'Password123!',
+        username: 'FF1232',
+        displayName: 'Lshietra'
+      })
+      const codeA = stateA.profile!.friendCode
+      expect(cloudProfiles.has(userAId)).toBe(true)
+
+      await deviceB.register({
+        email: 'friend@example.com',
+        password: 'Password123!',
+        username: 'friend_reader',
+        displayName: 'Friend Reader'
+      })
+
+      // Device B looks up Device A's Friend Code across the cloud
+      const lookup = await deviceB.lookupFriendCode(codeA)
+      expect(lookup.found).toBe(true)
+      expect(lookup.relationship).toBe('can-request')
+      expect(lookup.profile?.displayName).toBe('Lshietra')
+
+      // Device B sends a friend request to Device A
+      const sentReq = await deviceB.sendFriendRequest(codeA)
+      expect(sentReq.status).toBe('pending')
+
+      // Device A refreshes state from cloud and sees the incoming request from Device B
+      const refreshedA = await deviceA.getState()
+      const incoming = refreshedA.friends.find((f) => f.friend.userId === userBId)
+      expect(incoming).toBeDefined()
+      expect(incoming?.direction).toBe('incoming')
+
+      // Device A accepts the request -> Device B sees the accepted friendship and exchanges messages
+      await deviceA.respondFriendRequest(incoming!.id, 'accept')
+      const refreshedB = await deviceB.getState()
+      const acceptedOnB = refreshedB.friends.find((f) => f.friend.userId === userAId)
+      expect(acceptedOnB?.status).toBe('accepted')
+
+      const convOnB = await deviceB.openDirectConversation(userAId)
+      await deviceB.sendMessage({ conversationId: convOnB.id, body: 'Hello across Supabase Cloud!' })
+
+      const afterMsgA = await deviceA.getState()
+      expect(afterMsgA.conversations.length).toBe(1)
+      const msgsOnA = await deviceA.listMessages(afterMsgA.conversations[0].id)
+      expect(msgsOnA.some((m) => m.body === 'Hello across Supabase Cloud!')).toBe(true)
+    } finally {
+      dbB.close()
+      rmSync(dirB, { recursive: true, force: true })
+    }
+  })
 })

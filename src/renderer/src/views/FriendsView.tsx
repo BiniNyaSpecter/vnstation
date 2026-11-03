@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { normalizeFriendCode, type FriendCodeLookupResult } from '@shared/social'
 import { AuthPanel } from '@renderer/components/social/AuthPanel'
 import { Avatar } from '@renderer/components/social/Avatar'
@@ -22,6 +22,15 @@ export function FriendsView() {
   const [codeInput, setCodeInput] = useState('')
   const [lookupResult, setLookupResult] = useState<FriendCodeLookupResult | null>(null)
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!social.user) return
+    void refreshSocial()
+    const timer = window.setInterval(() => {
+      void refreshSocial()
+    }, 12_000)
+    return () => window.clearInterval(timer)
+  }, [social.user?.id, refreshSocial])
 
   if (!social.user || !social.profile) {
     return (

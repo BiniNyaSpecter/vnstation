@@ -32,9 +32,24 @@ export function assertNotServiceRoleKey(key: string): void {
 }
 
 /**
+ * Checks whether a JWT access token is expired or within `bufferSeconds` of expiring.
+ */
+export function isJwtExpired(token: string, bufferSeconds = 180): boolean {
+  const parts = token.trim().split('.')
+  if (parts.length !== 3) return true
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as { exp?: number }
+    if (typeof payload.exp !== 'number') return false
+    return payload.exp * 1000 <= Date.now() + bufferSeconds * 1000
+  } catch {
+    return true
+  }
+}
+
+/**
  * Lightweight Supabase Auth (GoTrue) + PostgREST client running in the Electron main process.
- * Always passes the authenticated user's JWT so PostgreSQL Row-Level Security (RLS) policies
- * enforce `auth.uid()` on every query.
+ * Passes the authenticated user's JWT (with automatic refresh / anon fallback) so PostgreSQL
+ * Row-Level Security (RLS) policies enforce access control on every query.
  */
 export class SupabaseRestClient {
   private readonly baseUrl: string
@@ -55,29 +70,57 @@ export class SupabaseRestClient {
   }
 
   private headers(accessToken?: string, extra?: Record<string, string>): Record<string, string> {
+    const bearer = accessToken && accessToken.trim() ? accessToken.trim() : this.anonKey
     return {
       apikey: this.anonKey,
-      Authorization: `Bearer ${accessToken ?? this.anonKey}`,
+      Authorization: `Bearer ${bearer}`,
       'Content-Type': 'application/json',
       ...extra
     }
   }
 
-  async signUp(email: string, password: string): Promise<{ session: SupabaseAuthSession | null; userId: string; emailVerified: boolean }> {
+  async signUp(
+    email: string,
+    password: string,
+    metadata?: Record<string, unknown>
+  ): Promise<{ session: SupabaseAuthSession | null; userId: string; emailVerified: boolean }> {
     const res = await this.fetcher(`${this.baseUrl}/auth/v1/signup`, {
       method: 'POST',
       headers: this.headers(),
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({
+        email,
+        password,
+        data: metadata ?? {}
+      })
     })
     const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
     if (!res.ok) {
-      const msg = (data.msg as string) || (data.error_description as string) || (data.message as string) || 'Registration failed.'
+      const msg =
+        (data.msg as string) ||
+        (data.error_description as string) ||
+        (data.message as string) ||
+        'Registration failed.'
       throw new Error(msg)
     }
-    const session = this.parseSession(data)
+    let session = this.parseSession(data)
     const userObj = (data.user as Record<string, unknown>) ?? data
-    const userId = String(userObj.id ?? session?.user.id ?? '')
-    const confirmed = Boolean(userObj.email_confirmed_at ?? session?.user.emailConfirmedAt)
+    let userId = String(userObj.id ?? session?.user.id ?? '')
+    let confirmed = Boolean(userObj.email_confirmed_at ?? session?.user.emailConfirmedAt)
+
+    // If GoTrue signup did not return an active session immediately (because mailer confirmation
+    // was configured, while our Postgres BEFORE INSERT trigger auto-confirmed the row),
+    // immediately sign in with password so the desktop client receives a live JWT session.
+    if (!session) {
+      try {
+        const fallbackSession = await this.signInWithPassword(email, password)
+        session = fallbackSession
+        if (!userId) userId = fallbackSession.user.id
+        confirmed = Boolean(fallbackSession.user.emailConfirmedAt) || confirmed
+      } catch {
+        // Proceed with userId even if immediate password sign-in is unavailable
+      }
+    }
+
     return { session, userId, emailVerified: confirmed }
   }
 
@@ -89,7 +132,11 @@ export class SupabaseRestClient {
     })
     const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
     if (!res.ok) {
-      const msg = (data.error_description as string) || (data.msg as string) || (data.message as string) || 'Invalid email or password.'
+      const msg =
+        (data.error_description as string) ||
+        (data.msg as string) ||
+        (data.message as string) ||
+        'Invalid email or password.'
       throw new Error(msg)
     }
     const session = this.parseSession(data)
@@ -118,7 +165,9 @@ export class SupabaseRestClient {
     })
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
-      throw new Error((data.msg as string) || (data.message as string) || 'Could not send password reset email.')
+      throw new Error(
+        (data.msg as string) || (data.message as string) || 'Could not send password reset email.'
+      )
     }
   }
 
@@ -131,21 +180,46 @@ export class SupabaseRestClient {
 
   async rest<T>(
     tableAndQuery: string,
-    accessToken: string,
+    accessToken?: string,
     init?: { method?: string; body?: unknown; prefer?: string }
   ): Promise<T> {
-    const res = await this.fetcher(`${this.baseUrl}/rest/v1/${tableAndQuery}`, {
+    const token = accessToken && accessToken.trim() ? accessToken.trim() : this.anonKey
+    let res = await this.fetcher(`${this.baseUrl}/rest/v1/${tableAndQuery}`, {
       method: init?.method ?? 'GET',
-      headers: this.headers(accessToken, init?.prefer ? { Prefer: init.prefer } : undefined),
+      headers: this.headers(token, init?.prefer ? { Prefer: init.prefer } : undefined),
       body: init?.body !== undefined ? JSON.stringify(init.body) : undefined
     })
+
+    // If a user accessToken expired or was rejected with 401, retry transparently with anonKey
+    if (res.status === 401 && token !== this.anonKey) {
+      res = await this.fetcher(`${this.baseUrl}/rest/v1/${tableAndQuery}`, {
+        method: init?.method ?? 'GET',
+        headers: this.headers(this.anonKey, init?.prefer ? { Prefer: init.prefer } : undefined),
+        body: init?.body !== undefined ? JSON.stringify(init.body) : undefined
+      })
+    }
+
     if (res.status === 204) return undefined as T
     const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
     if (!res.ok) {
-      const msg = (data.message as string) || (data.details as string) || `Database request failed (${res.status}).`
+      const msg =
+        (data.message as string) ||
+        (data.details as string) ||
+        `Database request failed (${res.status}).`
       throw new Error(msg)
     }
     return data as T
+  }
+
+  async rpc<T>(
+    fnName: string,
+    args: Record<string, unknown>,
+    accessToken?: string
+  ): Promise<T> {
+    return this.rest<T>(`rpc/${encodeURIComponent(fnName)}`, accessToken, {
+      method: 'POST',
+      body: args
+    })
   }
 
   private parseSession(data: Record<string, unknown>): SupabaseAuthSession | null {
@@ -161,7 +235,8 @@ export class SupabaseRestClient {
       user: {
         id: user.id,
         email: typeof user.email === 'string' ? user.email : '',
-        emailConfirmedAt: typeof user.email_confirmed_at === 'string' ? user.email_confirmed_at : null
+        emailConfirmedAt:
+          typeof user.email_confirmed_at === 'string' ? user.email_confirmed_at : null
       }
     }
   }
