@@ -48,6 +48,9 @@ export function ProfileView({ userId }: { userId?: string | null }) {
   const games = useAppStore((state) => state.games)
   const refreshSocial = useAppStore((state) => state.refreshSocial)
   const navigate = useAppStore((state) => state.navigate)
+  const push = useAppStore((state) => state.push)
+  const goBack = useAppStore((state) => state.goBack)
+  const canGoBack = useAppStore((state) => state.history.length > 1)
   const setActiveConversation = useAppStore((state) => state.setActiveConversation)
   const showToast = useAppStore((state) => state.showToast)
 
@@ -303,8 +306,12 @@ export function ProfileView({ userId }: { userId?: string | null }) {
         <div className="social-profile__toolbar">
           <div className="social-profile__toolbar-left">
             {isViewingOther ? (
-              <Button icon="arrowLeft" entryPoint onClick={() => navigate({ name: 'profile' })}>
-                Back to My Profile
+              <Button
+                icon="arrowLeft"
+                entryPoint
+                onClick={() => (canGoBack ? goBack() : navigate({ name: 'profile' }))}
+              >
+                Back
               </Button>
             ) : (
               <div className="social-profile__preview-bar" role="group" aria-label="Preview profile as">
@@ -386,6 +393,7 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                   <span className="field__label">Display Name</span>
                   <input
                     type="text"
+                    className="input"
                     maxLength={40}
                     value={displayName}
                     data-nav=""
@@ -396,6 +404,7 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                   <span className="field__label">Mood / Status Line</span>
                   <input
                     type="text"
+                    className="input"
                     maxLength={100}
                     placeholder="Late-night visual novel reader & soundtrack collector"
                     value={statusLine}
@@ -407,6 +416,7 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                   <span className="field__label">Now Reading / Listening To</span>
                   <input
                     type="text"
+                    className="input"
                     maxLength={90}
                     placeholder="e.g. Mahoutsukai no Yoru OST — Five"
                     value={nowListening}
@@ -417,6 +427,7 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                 <label className="field">
                   <span className="field__label">About Me / Bio</span>
                   <textarea
+                    className="input input--area"
                     rows={4}
                     maxLength={600}
                     placeholder="Tell friends about your favorite visual novels, writers, soundtracks, or reading habits…"
@@ -624,6 +635,7 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                     <span className="field__label">Featured VN Personal Note</span>
                     <input
                       type="text"
+                      className="input"
                       maxLength={220}
                       placeholder="Why this visual novel means a lot to you…"
                       value={featuredVn.blurb}
@@ -661,6 +673,7 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                     <span className="field__label">Featured Character Name</span>
                     <input
                       type="text"
+                      className="input"
                       maxLength={60}
                       placeholder="e.g. Aoko Aozaki"
                       value={featuredCharName}
@@ -672,6 +685,7 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                     <span className="field__label">From Visual Novel</span>
                     <input
                       type="text"
+                      className="input"
                       maxLength={80}
                       placeholder="e.g. Witch on the Holy Night"
                       value={featuredCharVn}
@@ -684,6 +698,7 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                   <span className="field__label">Character Quote / Note</span>
                   <input
                     type="text"
+                    className="input"
                     maxLength={180}
                     placeholder="Favorite quote or character note…"
                     value={featuredCharNote}
@@ -714,6 +729,14 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                       />
                     </div>
                     <div className="social-privacy-row">
+                      <span>Show Online Status to Friends</span>
+                      <Switch
+                        label="Show Online Status to Friends"
+                        checked={privacy.showOnlineStatus}
+                        onChange={(v) => setPrivacy({ ...privacy, showOnlineStatus: v })}
+                      />
+                    </div>
+                    <div className="social-privacy-row">
                       <span>Show Currently Playing Status</span>
                       <Switch
                         label="Show Currently Playing Status"
@@ -727,6 +750,14 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                         label="Show Top Friends Grid"
                         checked={privacy.showFriendsList}
                         onChange={(v) => setPrivacy({ ...privacy, showFriendsList: v })}
+                      />
+                    </div>
+                    <div className="social-privacy-row">
+                      <span>Allow Friend Requests by Code</span>
+                      <Switch
+                        label="Allow Friend Requests by Code"
+                        checked={privacy.allowFriendRequestsByCode}
+                        onChange={(v) => setPrivacy({ ...privacy, allowFriendRequestsByCode: v })}
                       />
                     </div>
                   </div>
@@ -747,7 +778,9 @@ export function ProfileView({ userId }: { userId?: string | null }) {
             {
               '--profile-accent': profileView.customization.accentColor || themeDef.defaultAccent,
               '--profile-surface': themeDef.surfaceBg,
+              '--profile-surface-rgb': themeDef.surfaceRgb,
               '--profile-card': themeDef.cardBg,
+              '--profile-card-rgb': themeDef.cardRgb,
               '--profile-border': themeDef.borderColor
             } as CSSProperties
           }
@@ -797,17 +830,20 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                 <div className="myspace-banner__chips">
                   <span className="myspace-chip">
                     <strong>Status:</strong>{' '}
-                    {profileView.currentlyPlaying
-                      ? `Reading ${profileView.currentlyPlaying}`
-                      : profileView.presence === 'online'
-                        ? 'Online'
-                        : profileView.presence === 'away'
-                          ? 'Away'
-                          : 'Offline'}
+                    {profileView.presence === 'online'
+                      ? 'Online'
+                      : profileView.presence === 'away'
+                        ? 'Away'
+                        : 'Offline'}
                   </span>
                   {profileView.currentlyPlaying && (
                     <span className="myspace-chip myspace-chip--playing">
-                      <Icon name="play" size={12} /> {profileView.currentlyPlaying}
+                      <Icon name="play" size={12} /> Reading {profileView.currentlyPlaying}
+                    </span>
+                  )}
+                  {profileView.customization.nowListening && (
+                    <span className="myspace-chip">
+                      ♪ {profileView.customization.nowListening}
                     </span>
                   )}
                 </div>
@@ -895,7 +931,7 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                           type="button"
                           className="myspace-friend-tile"
                           data-nav=""
-                          onClick={() => navigate({ name: 'profile', userId: friend.userId })}
+                          onClick={() => push({ name: 'profile', userId: friend.userId })}
                         >
                           <Avatar
                             displayName={friend.displayName}
@@ -926,7 +962,9 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                     <p className="myspace-bio">{profileView.bio}</p>
                   ) : (
                     <p className="myspace-muted">
-                      No bio written yet. Click “Customize Profile” above to share your visual novel story.
+                      {isViewingOther
+                        ? `${profileView.displayName} hasn’t written a bio yet.`
+                        : 'No bio written yet. Click “Customize Profile” above to share your visual novel story.'}
                     </p>
                   )}
                 </div>
@@ -994,8 +1032,9 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                     </div>
                   ) : (
                     <p className="myspace-muted">
-                      No favorite visual novels showcased yet. Choose up to 6 titles from your library in the Profile
-                      Studio.
+                      {isViewingOther
+                        ? 'No favorite visual novels showcased yet.'
+                        : 'No favorite visual novels showcased yet. Choose up to 6 titles from your library in the Profile Studio.'}
                     </p>
                   )}
                 </div>

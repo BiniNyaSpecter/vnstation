@@ -14,6 +14,7 @@ export function FriendsView() {
   const social = useAppStore((state) => state.social)
   const refreshSocial = useAppStore((state) => state.refreshSocial)
   const navigate = useAppStore((state) => state.navigate)
+  const push = useAppStore((state) => state.push)
   const setActiveConversation = useAppStore((state) => state.setActiveConversation)
   const showToast = useAppStore((state) => state.showToast)
 
@@ -250,7 +251,7 @@ export function FriendsView() {
                   <div className="social-friend-row__actions">
                     <Button
                       variant="ghost"
-                      onClick={() => navigate({ name: 'profile', userId: lookupResult.profile!.userId })}
+                      onClick={() => push({ name: 'profile', userId: lookupResult.profile!.userId })}
                     >
                       View Profile
                     </Button>
@@ -366,7 +367,7 @@ export function FriendsView() {
                     </Button>
                     <Button
                       variant="ghost"
-                      onClick={() => navigate({ name: 'profile', userId: record.friend.userId })}
+                      onClick={() => push({ name: 'profile', userId: record.friend.userId })}
                     >
                       Profile
                     </Button>
@@ -469,7 +470,7 @@ export function FriendsView() {
                   <div className="social-friend-row__actions">
                     <Button
                       variant="ghost"
-                      onClick={() => navigate({ name: 'profile', userId: record.friend.userId })}
+                      onClick={() => push({ name: 'profile', userId: record.friend.userId })}
                     >
                       Profile
                     </Button>

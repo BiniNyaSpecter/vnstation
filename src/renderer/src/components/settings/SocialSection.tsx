@@ -210,6 +210,22 @@ export function SocialSection() {
 
             <div className="setting">
               <div className="setting__text">
+                <div className="setting__label">Show online status to friends</div>
+                <div className="setting__description">
+                  Allow accepted friends to see when you are online or away.
+                </div>
+              </div>
+              <div className="setting__control">
+                <Switch
+                  label="Show online status to friends"
+                  checked={profile.privacy.showOnlineStatus}
+                  onChange={(val) => void handlePrivacyUpdate({ showOnlineStatus: val })}
+                />
+              </div>
+            </div>
+
+            <div className="setting">
+              <div className="setting__text">
                 <div className="setting__label">Share currently playing VN with friends</div>
                 <div className="setting__description">
                   When enabled, launching a visual novel updates your status with its title. Local executable paths are
@@ -221,6 +237,22 @@ export function SocialSection() {
                   label="Share currently playing VN with friends"
                   checked={profile.privacy.showCurrentlyPlaying}
                   onChange={(val) => void handlePrivacyUpdate({ showCurrentlyPlaying: val })}
+                />
+              </div>
+            </div>
+
+            <div className="setting">
+              <div className="setting__text">
+                <div className="setting__label">Show Top Friends list on profile</div>
+                <div className="setting__description">
+                  Display your public Top Friends grid on your profile page.
+                </div>
+              </div>
+              <div className="setting__control">
+                <Switch
+                  label="Show Top Friends list on profile"
+                  checked={profile.privacy.showFriendsList}
+                  onChange={(val) => void handlePrivacyUpdate({ showFriendsList: val })}
                 />
               </div>
             </div>

@@ -3,8 +3,10 @@
   "productName": "VNStation",
   "version": "1.0.0-beta.1",
   "description": "A console-style personal visual novel library and launcher.",
+  "author": "Lshietra",
+  "homepage": "https://github.com/BiniNyaSpecter/vnstation",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "main": "./out/main/index.js",
   "engines": {
     "node": ">=22.12.0"

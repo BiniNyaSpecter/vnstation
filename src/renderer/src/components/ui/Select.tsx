@@ -25,6 +25,7 @@ export function Select({
       <span className="select__label">{label}</span>
       <span className="select__box">
         <select
+          aria-label={label}
           data-nav=""
           data-nav-default={entryPoint ? '' : undefined}
           value={value}

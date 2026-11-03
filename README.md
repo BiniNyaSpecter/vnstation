@@ -58,7 +58,7 @@ It connects to your existing visual novels and launches the original executables
 - **Window State Automation:** Automatically minimizes VNStation on game startup and restores it when the visual novel closes.
 
 ### MySpace-Inspired Social & Profiles
-- **Expressive Profile Studio:** Curate your taste with 6 nostalgic themes (e.g., *Midnight Console*, *Sakura Memory*, *Tsukihime Crimson*), customizable banners, avatars, mood status lines, and "Now Reading" widgets.
+- **Expressive Profile Studio:** Curate your taste with 6 nostalgic themes (e.g., *Midnight Console*, *Sakura Reverie*, *Crimson Velvet*), customizable banners, avatars, mood status lines, and "Now Reading" widgets.
 - **Visual Novel & Character Showcase:** Spotlight your all-time favorite visual novels and waifu/husbando characters directly on your profile.
 - **Friend Codes & Direct Messaging:** Connect using non-sequential alphanumeric codes (`VNS-XXXX-XXXX`), manage friend requests, and chat in real-time with delivery receipts.
 - **Granular Privacy & "Preview As":** Instant preview toggle lets you verify how your profile appears to *Self*, *Friends*, or *Strangers*.

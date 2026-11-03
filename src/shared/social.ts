@@ -26,7 +26,9 @@ export interface ProfileThemeDefinition {
   label: string
   tagline: string
   surfaceBg: string
+  surfaceRgb: string
   cardBg: string
+  cardRgb: string
   borderColor: string
   defaultAccent: string
   bannerGradient: string
@@ -37,8 +39,10 @@ export const PROFILE_THEMES: Record<ProfileThemeId, ProfileThemeDefinition> = {
     id: 'midnight-console',
     label: 'Midnight Console',
     tagline: 'Deep twilight slate with soft periwinkle console glow.',
-    surfaceBg: 'rgba(14, 18, 38, 0.88)',
-    cardBg: 'rgba(22, 27, 56, 0.76)',
+    surfaceBg: 'rgb(14, 18, 38)',
+    surfaceRgb: '14, 18, 38',
+    cardBg: 'rgb(22, 27, 56)',
+    cardRgb: '22, 27, 56',
     borderColor: 'rgba(157, 180, 255, 0.22)',
     defaultAccent: '#9db4ff',
     bannerGradient: 'linear-gradient(135deg, rgba(24, 34, 78, 0.95) 0%, rgba(12, 16, 36, 0.92) 60%, rgba(45, 62, 130, 0.75) 100%)'
@@ -47,8 +51,10 @@ export const PROFILE_THEMES: Record<ProfileThemeId, ProfileThemeDefinition> = {
     id: 'myspace-cyber-2006',
     label: 'MySpace Cyber ’06',
     tagline: 'Classic 2000s personal space with electric cyan borders and retro bulletin energy.',
-    surfaceBg: 'rgba(10, 18, 34, 0.9)',
-    cardBg: 'rgba(16, 28, 52, 0.82)',
+    surfaceBg: 'rgb(10, 18, 34)',
+    surfaceRgb: '10, 18, 34',
+    cardBg: 'rgb(16, 28, 52)',
+    cardRgb: '16, 28, 52',
     borderColor: 'rgba(94, 234, 212, 0.32)',
     defaultAccent: '#5eead4',
     bannerGradient: 'linear-gradient(135deg, rgba(13, 48, 74, 0.95) 0%, rgba(16, 24, 48, 0.92) 55%, rgba(20, 92, 118, 0.82) 100%)'
@@ -57,8 +63,10 @@ export const PROFILE_THEMES: Record<ProfileThemeId, ProfileThemeDefinition> = {
     id: 'sakura-reverie',
     label: 'Sakura Reverie',
     tagline: 'Warm dusk plum and cherry blossom highlights for romance & nakige readers.',
-    surfaceBg: 'rgba(32, 18, 38, 0.88)',
-    cardBg: 'rgba(46, 26, 54, 0.78)',
+    surfaceBg: 'rgb(32, 18, 38)',
+    surfaceRgb: '32, 18, 38',
+    cardBg: 'rgb(46, 26, 54)',
+    cardRgb: '46, 26, 54',
     borderColor: 'rgba(242, 160, 189, 0.28)',
     defaultAccent: '#f2a0bd',
     bannerGradient: 'linear-gradient(135deg, rgba(68, 28, 62, 0.94) 0%, rgba(28, 16, 36, 0.92) 60%, rgba(112, 44, 82, 0.78) 100%)'
@@ -67,8 +75,10 @@ export const PROFILE_THEMES: Record<ProfileThemeId, ProfileThemeDefinition> = {
     id: 'crimson-velvet',
     label: 'Crimson Velvet',
     tagline: 'Gothic manor crimson and candlelit gold for mystery & occult visual novels.',
-    surfaceBg: 'rgba(30, 12, 18, 0.9)',
-    cardBg: 'rgba(46, 18, 26, 0.8)',
+    surfaceBg: 'rgb(30, 12, 18)',
+    surfaceRgb: '30, 12, 18',
+    cardBg: 'rgb(46, 18, 26)',
+    cardRgb: '46, 18, 26',
     borderColor: 'rgba(255, 140, 150, 0.28)',
     defaultAccent: '#ff8c96',
     bannerGradient: 'linear-gradient(135deg, rgba(76, 18, 30, 0.95) 0%, rgba(24, 10, 16, 0.94) 60%, rgba(108, 28, 42, 0.8) 100%)'
@@ -77,8 +87,10 @@ export const PROFILE_THEMES: Record<ProfileThemeId, ProfileThemeDefinition> = {
     id: 'golden-hour-library',
     label: 'Golden Hour Library',
     tagline: 'Amber study lamp warmth with literary serif charm.',
-    surfaceBg: 'rgba(30, 22, 14, 0.9)',
-    cardBg: 'rgba(44, 32, 20, 0.8)',
+    surfaceBg: 'rgb(30, 22, 14)',
+    surfaceRgb: '30, 22, 14',
+    cardBg: 'rgb(44, 32, 20)',
+    cardRgb: '44, 32, 20',
     borderColor: 'rgba(243, 194, 126, 0.28)',
     defaultAccent: '#f3c27e',
     bannerGradient: 'linear-gradient(135deg, rgba(72, 48, 22, 0.94) 0%, rgba(26, 18, 12, 0.92) 60%, rgba(104, 68, 28, 0.78) 100%)'
@@ -87,8 +99,10 @@ export const PROFILE_THEMES: Record<ProfileThemeId, ProfileThemeDefinition> = {
     id: 'dreamcast-ice',
     label: 'Dreamcast Ice',
     tagline: 'Crisp glacier blue and silver inspired by late-90s visual novel ports.',
-    surfaceBg: 'rgba(12, 24, 38, 0.88)',
-    cardBg: 'rgba(18, 36, 56, 0.78)',
+    surfaceBg: 'rgb(12, 24, 38)',
+    surfaceRgb: '12, 24, 38',
+    cardBg: 'rgb(18, 36, 56)',
+    cardRgb: '18, 36, 56',
     borderColor: 'rgba(125, 211, 252, 0.28)',
     defaultAccent: '#7dd3fc',
     bannerGradient: 'linear-gradient(135deg, rgba(18, 52, 84, 0.94) 0%, rgba(10, 20, 34, 0.92) 60%, rgba(32, 84, 128, 0.8) 100%)'

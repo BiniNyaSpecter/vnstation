@@ -29,6 +29,7 @@ export function MessagesView({ conversationId }: { conversationId?: string | nul
   const setDraftMessage = useAppStore((state) => state.setDraftMessage)
   const refreshSocial = useAppStore((state) => state.refreshSocial)
   const navigate = useAppStore((state) => state.navigate)
+  const push = useAppStore((state) => state.push)
   const showToast = useAppStore((state) => state.showToast)
 
   const [filterText, setFilterText] = useState('')
@@ -401,7 +402,7 @@ export function MessagesView({ conversationId }: { conversationId?: string | nul
                     size="sm"
                     variant="ghost"
                     onClick={() =>
-                      navigate({ name: 'profile', userId: activeConvo.participant.userId })
+                      push({ name: 'profile', userId: activeConvo.participant.userId })
                     }
                   >
                     Profile

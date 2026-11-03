@@ -56,10 +56,33 @@
   margin-left: 6px;
   border-radius: 999px;
   background: var(--accent);
-  color: #090d1a;
+  color: var(--accent-ink, #090d1a);
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
+}
+
+.social-auth__form .field,
+.social-editor__card .field,
+.steam-config-box .field,
+.steam-setup__fields .field {
+  margin-bottom: 0;
+}
+
+.field .select > .select__label,
+.social-privacy-row .select > .select__label,
+.messenger__report-fields .select > .select__label {
+  display: none;
+}
+
+.field input[type='color'] {
+  width: 64px;
+  height: 40px;
+  padding: 3px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
 }
 
 /* Avatar Component */
@@ -552,10 +575,15 @@
 /* MySpace Canvas */
 .myspace-canvas {
   --profile-accent: #9db4ff;
-  --profile-surface: rgba(14, 18, 38, 0.88);
-  --profile-card: rgba(22, 27, 56, 0.76);
+  --profile-surface: rgb(14, 18, 38);
+  --profile-surface-rgb: 14, 18, 38;
+  --profile-card: rgb(22, 27, 56);
+  --profile-card-rgb: 22, 27, 56;
   --profile-border: rgba(157, 180, 255, 0.24);
+  --fg: #f1eff8;
+  --fg-muted: #b5b2cc;
 
+  color: #f1eff8;
   border-radius: var(--radius-lg);
   background: var(--profile-surface);
   border: 1px solid var(--profile-border);
@@ -568,7 +596,7 @@
   position: relative;
   min-height: 176px;
   padding: 30px 32px 26px;
-  background-color: var(--profile-surface, rgb(var(--bg-rgb, 12, 14, 28)));
+  background-color: rgb(var(--profile-surface-rgb, 14, 18, 38));
   border-bottom: 1px solid var(--profile-border);
   background-clip: padding-box;
   overflow: hidden;
@@ -579,50 +607,35 @@
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  background-color: var(--profile-surface, rgb(var(--bg-rgb, 12, 14, 28)));
+  background-color: rgb(var(--profile-surface-rgb, 14, 18, 38));
 }
 
 .myspace-banner__img {
   position: absolute;
   top: 0;
   right: 0;
+  bottom: 2px;
   width: 72%;
   height: calc(100% - 2px);
   object-fit: cover;
   object-position: center 25%;
   display: block;
-  -webkit-mask-image:
-    linear-gradient(
-      to right,
-      transparent 0%,
-      transparent 12%,
-      rgba(0, 0, 0, 0.15) 30%,
-      rgba(0, 0, 0, 0.65) 55%,
-      #000 82%
-    ),
-    linear-gradient(
-      to top,
-      transparent 0%,
-      transparent 3px,
-      #000 16px
-    );
-  mask-image:
-    linear-gradient(
-      to right,
-      transparent 0%,
-      transparent 12%,
-      rgba(0, 0, 0, 0.15) 30%,
-      rgba(0, 0, 0, 0.65) 55%,
-      #000 82%
-    ),
-    linear-gradient(
-      to top,
-      transparent 0%,
-      transparent 3px,
-      #000 16px
-    );
-  -webkit-mask-composite: destination-in;
-  mask-composite: intersect;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    transparent 10%,
+    rgba(0, 0, 0, 0.2) 28%,
+    rgba(0, 0, 0, 0.72) 54%,
+    #000 80%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    transparent 10%,
+    rgba(0, 0, 0, 0.2) 28%,
+    rgba(0, 0, 0, 0.72) 54%,
+    #000 80%
+  );
 }
 
 .myspace-banner__theme-bg {
@@ -634,30 +647,31 @@
 
 .myspace-banner__scrim {
   position: absolute;
-  inset: 0;
+  inset: -2px;
   pointer-events: none;
   background:
     linear-gradient(
       to right,
-      var(--profile-surface, rgb(var(--bg-rgb, 12, 14, 28))) 0%,
-      var(--profile-surface, rgb(var(--bg-rgb, 12, 14, 28))) 32%,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.82) 48%,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.35) 68%,
+      rgb(var(--profile-surface-rgb, 14, 18, 38)) 0%,
+      rgb(var(--profile-surface-rgb, 14, 18, 38)) 34%,
+      rgba(var(--profile-surface-rgb, 14, 18, 38), 0.85) 48%,
+      rgba(var(--profile-surface-rgb, 14, 18, 38), 0.36) 68%,
       transparent 88%,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.25) 100%
+      rgba(var(--profile-surface-rgb, 14, 18, 38), 0.28) 100%
     ),
     linear-gradient(
       0deg,
-      var(--profile-surface, rgb(var(--bg-rgb, 12, 14, 28))) 0%,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.75) 10px,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.2) 28px,
-      transparent 55px
+      rgb(var(--profile-surface-rgb, 14, 18, 38)) 0px,
+      rgb(var(--profile-surface-rgb, 14, 18, 38)) 5px,
+      rgba(var(--profile-surface-rgb, 14, 18, 38), 0.84) 14px,
+      rgba(var(--profile-surface-rgb, 14, 18, 38), 0.28) 32px,
+      transparent 60px
     ),
     linear-gradient(
       180deg,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.65) 0%,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.15) 20px,
-      transparent 45px
+      rgba(var(--profile-surface-rgb, 14, 18, 38), 0.65) 0px,
+      rgba(var(--profile-surface-rgb, 14, 18, 38), 0.16) 20px,
+      transparent 46px
     );
 }
 
@@ -1037,22 +1051,22 @@
 
 .myspace-spotlight__art-scrim {
   position: absolute;
-  inset: 0;
+  inset: -2px;
   background:
     linear-gradient(
       to right,
-      var(--profile-card, rgba(var(--bg-rgb, 12, 14, 28), 0.95)) 0%,
-      var(--profile-card, rgba(var(--bg-rgb, 12, 14, 28), 0.95)) 36%,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.84) 50%,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.35) 72%,
+      rgb(var(--profile-card-rgb, 22, 27, 56)) 0%,
+      rgb(var(--profile-card-rgb, 22, 27, 56)) 36%,
+      rgba(var(--profile-card-rgb, 22, 27, 56), 0.85) 50%,
+      rgba(var(--profile-card-rgb, 22, 27, 56), 0.35) 72%,
       transparent 90%
     ),
     linear-gradient(
       180deg,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.4) 0%,
+      rgba(var(--profile-card-rgb, 22, 27, 56), 0.45) 0%,
       transparent 28%,
       transparent 72%,
-      rgba(var(--bg-rgb, 12, 14, 28), 0.5) 100%
+      rgba(var(--profile-card-rgb, 22, 27, 56), 0.55) 100%
     );
   pointer-events: none;
 }
@@ -1440,7 +1454,7 @@
   padding: 0 5px;
   border-radius: 999px;
   background: var(--accent);
-  color: #090d1a;
+  color: var(--accent-ink, #090d1a);
   font-size: 11px;
   font-weight: 700;
 }
@@ -1572,8 +1586,8 @@
 }
 
 .messenger__msg.is-mine .messenger__bubble {
-  background: rgba(121, 168, 255, 0.18);
-  border-color: rgba(121, 168, 255, 0.36);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
 }
 
 .messenger__body {

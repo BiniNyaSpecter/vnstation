@@ -135,6 +135,7 @@ export function AuthPanel({ subtitle }: { subtitle?: string }) {
             <span className="field__label">Email address</span>
             <input
               type="email"
+              className="input"
               required
               placeholder="reader@example.com"
               value={email}
@@ -148,6 +149,7 @@ export function AuthPanel({ subtitle }: { subtitle?: string }) {
               <span className="field__label">Password (at least 8 characters)</span>
               <input
                 type="password"
+                className="input"
                 required
                 minLength={8}
                 placeholder="••••••••"
@@ -165,6 +167,7 @@ export function AuthPanel({ subtitle }: { subtitle?: string }) {
                   <span className="field__label">Unique username</span>
                   <input
                     type="text"
+                    className="input"
                     required
                     pattern="[a-zA-Z0-9_]{3,24}"
                     placeholder="kotori_reader"
@@ -179,6 +182,7 @@ export function AuthPanel({ subtitle }: { subtitle?: string }) {
                   <span className="field__label">Display name</span>
                   <input
                     type="text"
+                    className="input"
                     required
                     maxLength={40}
                     placeholder="Kotori"
