@@ -11,6 +11,21 @@ import { services } from '@renderer/services'
 import { useAppStore } from '@renderer/state/appStore'
 
 const PAGE_SIZE = 40
+const threadMessageCache = new Map<string, DirectMessage[]>()
+let cachedUserId: string | null = null
+
+function mergeMessages(existing: DirectMessage[], incoming: DirectMessage[]): DirectMessage[] {
+  if (existing.length === 0) return incoming
+  if (incoming.length === 0) return existing
+  const byKey = new Map<string, DirectMessage>()
+  for (const m of existing) {
+    byKey.set(m.clientMessageId || m.id, m)
+  }
+  for (const m of incoming) {
+    byKey.set(m.clientMessageId || m.id, m)
+  }
+  return Array.from(byKey.values()).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+}
 
 function formatTimeShort(iso: string): string {
   try {
@@ -43,6 +58,12 @@ export function MessagesView({ conversationId }: { conversationId?: string | nul
 
   const threadEndRef = useRef<HTMLDivElement>(null)
 
+  const currentUserId = social.user?.id ?? null
+  if (cachedUserId !== currentUserId) {
+    cachedUserId = currentUserId
+    threadMessageCache.clear()
+  }
+
   const visibleConversations = useMemo(() => {
     const q = filterText.trim().toLowerCase()
     return social.conversations.filter((c) => {
@@ -64,6 +85,10 @@ export function MessagesView({ conversationId }: { conversationId?: string | nul
     [social.conversations, selectedId]
   )
 
+  const selectedIdRef = useRef<string | null>(selectedId)
+  selectedIdRef.current = selectedId
+  const activeUnreadCount = activeConvo?.unreadCount ?? 0
+
   useEffect(() => {
     if (conversationId && conversationId !== activeConversationId) {
       setActiveConversation(conversationId)
@@ -73,21 +98,34 @@ export function MessagesView({ conversationId }: { conversationId?: string | nul
   }, [conversationId, activeConversationId, visibleConversations, setActiveConversation])
 
   const loadMessages = useCallback(
-    async (convoId: string) => {
-      setLoadingMessages(true)
+    async (convoId: string, unreadCount: number) => {
+      const cached = threadMessageCache.get(convoId)
+      if (cached && cached.length > 0) {
+        setMessages(cached)
+        setLoadingMessages(false)
+      } else {
+        setLoadingMessages(true)
+      }
+
       try {
         const list = await services.social.listMessages(convoId, { limit: PAGE_SIZE })
-        setMessages(list)
-        setHasOlder(list.length >= PAGE_SIZE)
-        await services.social.markConversationRead(convoId)
-        await refreshSocial()
+        threadMessageCache.set(convoId, list)
+        if (selectedIdRef.current === convoId) {
+          setMessages(list)
+          setHasOlder(list.length >= PAGE_SIZE)
+          setLoadingMessages(false)
+        }
+        if (unreadCount > 0) {
+          void services.social.markConversationRead(convoId)
+        }
       } catch {
-        setMessages([])
-      } finally {
-        setLoadingMessages(false)
+        if (selectedIdRef.current === convoId) {
+          setMessages(cached ?? [])
+          setLoadingMessages(false)
+        }
       }
     },
-    [refreshSocial]
+    []
   )
 
   useEffect(() => {
@@ -95,8 +133,16 @@ export function MessagesView({ conversationId }: { conversationId?: string | nul
       setMessages([])
       return
     }
-    void loadMessages(selectedId)
-  }, [selectedId, social.user, loadMessages])
+    const cached = threadMessageCache.get(selectedId)
+    if (cached) {
+      setMessages(cached)
+    } else if (activeConvo?.lastMessage) {
+      setMessages([activeConvo.lastMessage])
+    } else {
+      setMessages([])
+    }
+    void loadMessages(selectedId, activeUnreadCount)
+  }, [selectedId, social.user, loadMessages, activeConvo?.lastMessage, activeUnreadCount])
 
   // Real-time incoming message subscription & cloud polling for the active thread
   useEffect(() => {
@@ -104,14 +150,11 @@ export function MessagesView({ conversationId }: { conversationId?: string | nul
     const unsub = services.social.subscribe((event) => {
       if (event.type === 'message-received' && event.conversationId === selectedId) {
         setMessages((prev) => {
-          if (prev.some((m) => m.id === event.message.id)) return prev
-          return [...prev, event.message]
+          const next = mergeMessages(prev, [event.message])
+          threadMessageCache.set(selectedId, next)
+          return next
         })
-        void services.social.markConversationRead(selectedId).then(() => refreshSocial())
-      } else if (event.type === 'state-changed' && selectedId) {
-        void services.social.listMessages(selectedId, { limit: PAGE_SIZE }).then((list) => {
-          setMessages(list)
-        })
+        void services.social.markConversationRead(selectedId)
       }
     })
     const pollTimer = window.setInterval(() => {
@@ -119,7 +162,14 @@ export function MessagesView({ conversationId }: { conversationId?: string | nul
       void services.social
         .listMessages(selectedId, { limit: PAGE_SIZE })
         .then((list) => {
-          setMessages((prev) => (list.length !== prev.length ? list : prev))
+          threadMessageCache.set(selectedId, list)
+          if (selectedIdRef.current === selectedId) {
+            setMessages((prev) => {
+              const prevLastId = prev[prev.length - 1]?.id
+              const nextLastId = list[list.length - 1]?.id
+              return list.length !== prev.length || prevLastId !== nextLastId ? list : prev
+            })
+          }
         })
         .catch(() => undefined)
     }, 8_000)
@@ -154,8 +204,9 @@ export function MessagesView({ conversationId }: { conversationId?: string | nul
         before: oldest.createdAt
       })
       setMessages((prev) => {
-        const existingIds = new Set(prev.map((m) => m.id))
-        return [...older.filter((m) => !existingIds.has(m.id)), ...prev]
+        const next = mergeMessages(older, prev)
+        threadMessageCache.set(selectedId, next)
+        return next
       })
       setHasOlder(older.length >= PAGE_SIZE)
     } catch (err) {
@@ -184,11 +235,19 @@ export function MessagesView({ conversationId }: { conversationId?: string | nul
 
     if (!retryMessage) {
       setDraftMessage(selectedId, '')
-      setMessages((prev) => [...prev, optimistic])
+      setMessages((prev) => {
+        const next = [...prev, optimistic]
+        threadMessageCache.set(selectedId, next)
+        return next
+      })
     } else {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === retryMessage.id ? { ...m, deliveryStatus: 'sending' } : m))
-      )
+      setMessages((prev) => {
+        const next = prev.map((m) =>
+          m.id === retryMessage.id ? { ...m, deliveryStatus: 'sending' as const } : m
+        )
+        threadMessageCache.set(selectedId, next)
+        return next
+      })
     }
 
     setSending(true)
@@ -198,20 +257,23 @@ export function MessagesView({ conversationId }: { conversationId?: string | nul
         body,
         clientMessageId
       })
-      setMessages((prev) =>
-        prev.map((m) =>
+      setMessages((prev) => {
+        const next = prev.map((m) =>
           m.clientMessageId === clientMessageId || m.id === optimistic.id ? delivered : m
         )
-      )
-      await refreshSocial()
+        threadMessageCache.set(selectedId, next)
+        return next
+      })
     } catch (err) {
-      setMessages((prev) =>
-        prev.map((m) =>
+      setMessages((prev) => {
+        const next = prev.map((m) =>
           m.clientMessageId === clientMessageId || m.id === optimistic.id
-            ? { ...m, deliveryStatus: 'failed' }
+            ? { ...m, deliveryStatus: 'failed' as const }
             : m
         )
-      )
+        threadMessageCache.set(selectedId, next)
+        return next
+      })
       showToast(err instanceof Error ? err.message : 'Message failed to send.', 'error')
     } finally {
       setSending(false)
@@ -229,7 +291,6 @@ export function MessagesView({ conversationId }: { conversationId?: string | nul
     if (!activeConvo) return
     try {
       await services.social.setConversationMuted(activeConvo.id, !activeConvo.muted)
-      await refreshSocial()
       showToast(
         activeConvo.muted ? 'Conversation notifications unmuted.' : 'Conversation notifications muted.',
         'info'
@@ -243,8 +304,8 @@ export function MessagesView({ conversationId }: { conversationId?: string | nul
     if (!activeConvo) return
     try {
       await services.social.clearConversationHistory(activeConvo.id)
+      threadMessageCache.set(activeConvo.id, [])
       setMessages([])
-      await refreshSocial()
       showToast('Local conversation history cleared.', 'info')
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Could not clear history.', 'error')

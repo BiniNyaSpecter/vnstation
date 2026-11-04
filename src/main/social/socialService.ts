@@ -329,7 +329,10 @@ export interface SocialServiceOptions {
   now?: () => number
 }
 
+let cachedLocalEnv: Record<string, string> | null = null
+
 function loadLocalEnvFile(): Record<string, string> {
+  if (cachedLocalEnv) return cachedLocalEnv
   try {
     const envPath = join(process.cwd(), '.env')
     if (existsSync(envPath)) {
@@ -351,12 +354,14 @@ function loadLocalEnvFile(): Record<string, string> {
           env[key] = val
         }
       }
+      cachedLocalEnv = env
       return env
     }
   } catch {
     // ignore missing or unreadable .env file
   }
-  return {}
+  cachedLocalEnv = {}
+  return cachedLocalEnv
 }
 
 export class SocialService implements SocialApi {
@@ -369,6 +374,12 @@ export class SocialService implements SocialApi {
   private readonly requestLimiter: RateLimiter
   private readonly messageLimiter: RateLimiter
   private activeSession: StoredSession | null = null
+  private cloudSyncInFlight: Promise<void> | null = null
+  private lastSyncedOwnProfileSignature: string | null = null
+  private readonly syncedCloudConversations = new Set<string>()
+  private readonly lastConvSyncAt = new Map<string, number>()
+  private readonly convSyncInFlight = new Map<string, Promise<void>>()
+  private localOnlyStateChangeUntil = 0
 
   constructor(options: SocialServiceOptions) {
     this.db = options.db
@@ -493,6 +504,16 @@ export class SocialService implements SocialApi {
   }
 
   private saveActiveSession(session: StoredSession | null): void {
+    const prevUserId = this.activeSession?.userId ?? null
+    const nextUserId = session?.userId ?? null
+    if (prevUserId !== nextUserId) {
+      this.cloudSyncInFlight = null
+      this.lastSyncedOwnProfileSignature = null
+      this.syncedCloudConversations.clear()
+      this.lastConvSyncAt.clear()
+      this.convSyncInFlight.clear()
+      this.localOnlyStateChangeUntil = 0
+    }
     this.activeSession = session
     this.writeEncryptedSetting(KEY_SESSION, session)
   }
@@ -839,10 +860,13 @@ export class SocialService implements SocialApi {
    * Ensures the signed-in user's local profile and Friend Code (`VNS-XXXX-XXXX`) are
    * durably synced to Supabase `public.profiles` so other users can always discover them.
    */
-  private async syncOwnProfileToCloud(userId: string): Promise<void> {
+  private async syncOwnProfileToCloud(userId: string, force = false): Promise<void> {
     if (!isUuid(userId)) return
     const local = this.loadProfileById(userId)
     if (!local) return
+    const signature = `${local.userId}:${local.updatedAt}:${local.presence}:${local.currentlyPlaying ?? ''}:${local.friendCode}`
+    if (!force && this.lastSyncedOwnProfileSignature === signature) return
+
     const cloud = await this.getCloudClientAndToken()
     if (!cloud) return
 
@@ -867,6 +891,10 @@ export class SocialService implements SocialApi {
       )
       if (synced && typeof synced === 'object' && synced.user_id) {
         this.upsertRemoteProfileRowToLocal(synced)
+        const updatedLocal = this.loadProfileById(userId)
+        this.lastSyncedOwnProfileSignature = updatedLocal
+          ? `${updatedLocal.userId}:${updatedLocal.updatedAt}:${updatedLocal.presence}:${updatedLocal.currentlyPlaying ?? ''}:${updatedLocal.friendCode}`
+          : signature
         return
       }
     } catch {
@@ -892,6 +920,7 @@ export class SocialService implements SocialApi {
           updated_at: local.updatedAt
         }
       })
+      this.lastSyncedOwnProfileSignature = signature
     } catch {
       // Offline or mock fallback
     }
@@ -900,9 +929,27 @@ export class SocialService implements SocialApi {
   /**
    * Pulls the user's friendships, blocks, conversations, messages, and peer profiles from
    * Supabase Cloud into local SQLite so cross-device friend requests and DMs stay in sync.
+   * Deduplicates concurrent in-flight syncs and uses the single-roundtrip `pull_social_snapshot`
+   * RPC when available (falling back to parallel REST requests in test mocks).
    */
   private async pullCloudSocialGraph(userId: string): Promise<void> {
     if (!isUuid(userId)) return
+    if (this.cloudSyncInFlight) {
+      return this.cloudSyncInFlight
+    }
+
+    const task = this.executePullCloudSocialGraph(userId)
+    this.cloudSyncInFlight = task
+    try {
+      await task
+    } finally {
+      if (this.cloudSyncInFlight === task) {
+        this.cloudSyncInFlight = null
+      }
+    }
+  }
+
+  private async executePullCloudSocialGraph(userId: string): Promise<void> {
     const cloud = await this.getCloudClientAndToken()
     if (!cloud) return
     const { client, token } = cloud
@@ -910,181 +957,244 @@ export class SocialService implements SocialApi {
     await this.syncOwnProfileToCloud(userId)
 
     try {
-      // 1. Sync blocks
-      const remoteBlocks = await client
-        .rest<Array<Record<string, unknown>>>(
-          `user_blocks?or=(blocker_id.eq.${encodeURIComponent(userId)},blocked_id.eq.${encodeURIComponent(userId)})&select=*`,
+      let remoteBlocks: Array<Record<string, unknown>> | null = null
+      let remoteFriendships: Array<Record<string, unknown>> | null = null
+      let remoteConversations: Array<Record<string, unknown>> | null = null
+      let remoteProfiles: Array<Record<string, unknown>> | null = null
+      let remoteMessages: Array<Record<string, unknown>> | null = null
+
+      // Fast path: single-roundtrip PostgreSQL snapshot RPC
+      const snapshot = await client
+        .rpc<Record<string, unknown>>(
+          'pull_social_snapshot',
+          {
+            p_user_id: userId,
+            p_messages_since: null,
+            p_per_conversation_limit: 60
+          },
           token
         )
         .catch(() => null)
 
-      const peerIds = new Set<string>()
-      if (Array.isArray(remoteBlocks)) {
-        for (const b of remoteBlocks) {
-          const blockerId = String(b.blocker_id || '')
-          const blockedId = String(b.blocked_id || '')
-          if (isUuid(blockerId) && blockerId !== userId) peerIds.add(blockerId)
-          if (isUuid(blockedId) && blockedId !== userId) peerIds.add(blockedId)
+      const hasSnapshot =
+        snapshot !== null &&
+        typeof snapshot === 'object' &&
+        !Array.isArray(snapshot) &&
+        snapshot.ok === true
+
+      if (hasSnapshot) {
+        remoteBlocks = Array.isArray(snapshot.blocks)
+          ? (snapshot.blocks as Array<Record<string, unknown>>)
+          : []
+        remoteFriendships = Array.isArray(snapshot.friendships)
+          ? (snapshot.friendships as Array<Record<string, unknown>>)
+          : []
+        remoteConversations = Array.isArray(snapshot.conversations)
+          ? (snapshot.conversations as Array<Record<string, unknown>>)
+          : []
+        remoteProfiles = Array.isArray(snapshot.profiles)
+          ? (snapshot.profiles as Array<Record<string, unknown>>)
+          : []
+        remoteMessages = Array.isArray(snapshot.messages)
+          ? (snapshot.messages as Array<Record<string, unknown>>)
+          : []
+      } else {
+        // Fallback path: fetch blocks, friendships, and conversations in parallel
+        const [blocksRes, friendshipsRes, conversationsRes] = await Promise.all([
+          client
+            .rest<Array<Record<string, unknown>>>(
+              `user_blocks?or=(blocker_id.eq.${encodeURIComponent(userId)},blocked_id.eq.${encodeURIComponent(userId)})&select=*`,
+              token
+            )
+            .catch(() => null),
+          client
+            .rest<Array<Record<string, unknown>>>(
+              `friendships?or=(requester_id.eq.${encodeURIComponent(userId)},recipient_id.eq.${encodeURIComponent(userId)})&select=*`,
+              token
+            )
+            .catch(() => null),
+          client
+            .rest<Array<Record<string, unknown>>>(
+              `conversations?or=(pair_low.eq.${encodeURIComponent(userId)},pair_high.eq.${encodeURIComponent(userId)})&select=*`,
+              token
+            )
+            .catch(() => null)
+        ])
+
+        remoteBlocks = blocksRes
+        remoteFriendships = friendshipsRes
+        remoteConversations = conversationsRes
+
+        const peerIds = new Set<string>()
+        if (Array.isArray(remoteBlocks)) {
+          for (const b of remoteBlocks) {
+            const blockerId = String(b.blocker_id || '')
+            const blockedId = String(b.blocked_id || '')
+            if (isUuid(blockerId) && blockerId !== userId) peerIds.add(blockerId)
+            if (isUuid(blockedId) && blockedId !== userId) peerIds.add(blockedId)
+          }
         }
-      }
 
-      // 2. Push any local UUID friendships not yet on cloud, then fetch remote friendships
-      const localFriendships = this.db.all<{
-        id: string
-        requester_id: string
-        recipient_id: string
-        status: string
-        created_at: string
-        updated_at: string
-        accepted_at: string | null
-      }>(
-        'SELECT id, requester_id, recipient_id, status, created_at, updated_at, accepted_at FROM social_friendships WHERE requester_id = ? OR recipient_id = ?',
-        userId,
-        userId
-      )
-      for (const lf of localFriendships) {
-        const otherId = lf.requester_id === userId ? lf.recipient_id : lf.requester_id
-        if (isUuid(otherId)) peerIds.add(otherId)
-      }
-
-      const remoteFriendships = await client
-        .rest<Array<Record<string, unknown>>>(
-          `friendships?or=(requester_id.eq.${encodeURIComponent(userId)},recipient_id.eq.${encodeURIComponent(userId)})&select=*`,
-          token
+        const localFriendships = this.db.all<{
+          requester_id: string
+          recipient_id: string
+        }>(
+          'SELECT requester_id, recipient_id FROM social_friendships WHERE requester_id = ? OR recipient_id = ?',
+          userId,
+          userId
         )
-        .catch(() => null)
-
-      if (Array.isArray(remoteFriendships)) {
-        for (const rf of remoteFriendships) {
-          const reqId = String(rf.requester_id || '')
-          const recId = String(rf.recipient_id || '')
-          if (isUuid(reqId) && reqId !== userId) peerIds.add(reqId)
-          if (isUuid(recId) && recId !== userId) peerIds.add(recId)
+        for (const lf of localFriendships) {
+          const otherId = lf.requester_id === userId ? lf.recipient_id : lf.requester_id
+          if (isUuid(otherId)) peerIds.add(otherId)
         }
+
+        if (Array.isArray(remoteFriendships)) {
+          for (const rf of remoteFriendships) {
+            const reqId = String(rf.requester_id || '')
+            const recId = String(rf.recipient_id || '')
+            if (isUuid(reqId) && reqId !== userId) peerIds.add(reqId)
+            if (isUuid(recId) && recId !== userId) peerIds.add(recId)
+          }
+        }
+
+        const convIdsForFallback: string[] = []
+        if (Array.isArray(remoteConversations)) {
+          for (const rc of remoteConversations) {
+            const remoteId = String(rc.id || '')
+            const low = String(rc.pair_low || '')
+            const high = String(rc.pair_high || '')
+            if (remoteId) convIdsForFallback.push(remoteId)
+            if (isUuid(low) && low !== userId) peerIds.add(low)
+            if (isUuid(high) && high !== userId) peerIds.add(high)
+          }
+        }
+
+        const [profilesRes, messagesRes] = await Promise.all([
+          peerIds.size > 0
+            ? client
+                .rest<Array<Record<string, unknown>>>(
+                  `profiles?user_id=in.(${Array.from(peerIds).join(',')})&select=*`,
+                  token
+                )
+                .catch(() => null)
+            : Promise.resolve(null),
+          convIdsForFallback.length > 0
+            ? client
+                .rest<Array<Record<string, unknown>>>(
+                  `messages?conversation_id=in.(${convIdsForFallback.join(',')})&order=created_at.desc&limit=120`,
+                  token
+                )
+                .catch(() => null)
+            : Promise.resolve(null)
+        ])
+
+        remoteProfiles = profilesRes
+        remoteMessages = messagesRes
       }
 
-      // 3. Pull remote conversations involving userId
-      const remoteConversations = await client
-        .rest<Array<Record<string, unknown>>>(
-          `conversations?or=(pair_low.eq.${encodeURIComponent(userId)},pair_high.eq.${encodeURIComponent(userId)})&select=*`,
-          token
-        )
-        .catch(() => null)
+      const newlyReceivedMessages: Array<{ conversationId: string; message: DirectMessage }> = []
+      const syncTimestamp = this.now()
 
-      if (Array.isArray(remoteConversations)) {
-        for (const rc of remoteConversations) {
-          const low = String(rc.pair_low || '')
-          const high = String(rc.pair_high || '')
-          if (isUuid(low) && low !== userId) peerIds.add(low)
-          if (isUuid(high) && high !== userId) peerIds.add(high)
-        }
-      }
-
-      // 4. Fetch & cache all referenced peer profiles first (so local FKs succeed)
-      if (peerIds.size > 0) {
-        const idList = Array.from(peerIds).join(',')
-        const remoteProfiles = await client
-          .rest<Array<Record<string, unknown>>>(`profiles?user_id=in.(${idList})&select=*`, token)
-          .catch(() => null)
+      this.db.transaction(() => {
+        // 1. Cache peer profiles first so foreign keys succeed
         if (Array.isArray(remoteProfiles)) {
           for (const p of remoteProfiles) {
             this.upsertRemoteProfileRowToLocal(p)
           }
         }
-      }
 
-      // 5. Reconcile blocks locally
-      if (Array.isArray(remoteBlocks)) {
-        for (const b of remoteBlocks) {
-          const blockerId = String(b.blocker_id || '')
-          const blockedId = String(b.blocked_id || '')
-          const createdAt = String(b.created_at || new Date(this.now()).toISOString())
-          if (this.loadProfileById(blockerId) && this.loadProfileById(blockedId)) {
+        // 2. Reconcile blocks locally
+        if (Array.isArray(remoteBlocks)) {
+          for (const b of remoteBlocks) {
+            const blockerId = String(b.blocker_id || '')
+            const blockedId = String(b.blocked_id || '')
+            const createdAt = String(b.created_at || new Date(syncTimestamp).toISOString())
+            if (this.loadProfileById(blockerId) && this.loadProfileById(blockedId)) {
+              this.db.run(
+                'INSERT OR IGNORE INTO social_blocks (blocker_id, blocked_id, created_at) VALUES (?, ?, ?)',
+                blockerId,
+                blockedId,
+                createdAt
+              )
+            }
+          }
+        }
+
+        // 3. Reconcile friendships locally
+        if (Array.isArray(remoteFriendships)) {
+          for (const rf of remoteFriendships) {
+            const id = String(rf.id || randomUUID())
+            const reqId = String(rf.requester_id || '')
+            const recId = String(rf.recipient_id || '')
+            if (!this.loadProfileById(reqId) || !this.loadProfileById(recId)) continue
+            const [low, high] = canonicalPair(reqId, recId)
+            const status = rf.status === 'accepted' ? 'accepted' : 'pending'
+            const createdAt = String(rf.created_at || new Date(syncTimestamp).toISOString())
+            const updatedAt = String(rf.updated_at || createdAt)
+            const acceptedAt = rf.accepted_at
+              ? String(rf.accepted_at)
+              : status === 'accepted'
+                ? updatedAt
+                : null
+
             this.db.run(
-              'INSERT OR IGNORE INTO social_blocks (blocker_id, blocked_id, created_at) VALUES (?, ?, ?)',
-              blockerId,
-              blockedId,
-              createdAt
+              `INSERT INTO social_friendships (
+                id, requester_id, recipient_id, pair_low, pair_high, status, created_at, updated_at, accepted_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(pair_low, pair_high) DO UPDATE SET
+                id = excluded.id,
+                requester_id = excluded.requester_id,
+                recipient_id = excluded.recipient_id,
+                status = excluded.status,
+                updated_at = excluded.updated_at,
+                accepted_at = COALESCE(excluded.accepted_at, social_friendships.accepted_at)`,
+              id,
+              reqId,
+              recId,
+              low,
+              high,
+              status,
+              createdAt,
+              updatedAt,
+              acceptedAt
             )
           }
         }
-      }
 
-      // 6. Reconcile friendships locally
-      if (Array.isArray(remoteFriendships)) {
-        for (const rf of remoteFriendships) {
-          const id = String(rf.id || randomUUID())
-          const reqId = String(rf.requester_id || '')
-          const recId = String(rf.recipient_id || '')
-          if (!this.loadProfileById(reqId) || !this.loadProfileById(recId)) continue
-          const [low, high] = canonicalPair(reqId, recId)
-          const status = rf.status === 'accepted' ? 'accepted' : 'pending'
-          const createdAt = String(rf.created_at || new Date(this.now()).toISOString())
-          const updatedAt = String(rf.updated_at || createdAt)
-          const acceptedAt = rf.accepted_at ? String(rf.accepted_at) : status === 'accepted' ? updatedAt : null
+        // 4. Reconcile conversations & recent messages
+        if (Array.isArray(remoteConversations) && remoteConversations.length > 0) {
+          for (const rc of remoteConversations) {
+            const remoteId = String(rc.id || '')
+            const low = String(rc.pair_low || '')
+            const high = String(rc.pair_high || '')
+            if (!remoteId || !this.loadProfileById(low) || !this.loadProfileById(high)) continue
+            const createdAt = String(rc.created_at || new Date(syncTimestamp).toISOString())
+            const updatedAt = String(rc.updated_at || createdAt)
 
-          this.db.run(
-            `INSERT INTO social_friendships (
-              id, requester_id, recipient_id, pair_low, pair_high, status, created_at, updated_at, accepted_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(pair_low, pair_high) DO UPDATE SET
-              id = excluded.id,
-              requester_id = excluded.requester_id,
-              recipient_id = excluded.recipient_id,
-              status = excluded.status,
-              updated_at = excluded.updated_at,
-              accepted_at = COALESCE(excluded.accepted_at, social_friendships.accepted_at)`,
-            id,
-            reqId,
-            recId,
-            low,
-            high,
-            status,
-            createdAt,
-            updatedAt,
-            acceptedAt
-          )
-        }
-      }
-
-      // 7. Reconcile conversations & recent messages
-      if (Array.isArray(remoteConversations) && remoteConversations.length > 0) {
-        const convIds: string[] = []
-        for (const rc of remoteConversations) {
-          const remoteId = String(rc.id || '')
-          const low = String(rc.pair_low || '')
-          const high = String(rc.pair_high || '')
-          if (!remoteId || !this.loadProfileById(low) || !this.loadProfileById(high)) continue
-          convIds.push(remoteId)
-          const createdAt = String(rc.created_at || new Date(this.now()).toISOString())
-          const updatedAt = String(rc.updated_at || createdAt)
-
-          const existingConv = this.db.get<{ id: string }>(
-            'SELECT id FROM social_conversations WHERE pair_low = ? AND pair_high = ?',
-            low,
-            high
-          )
-          if (!existingConv) {
-            this.db.run(
-              `INSERT INTO social_conversations (id, type, pair_low, pair_high, created_at, updated_at)
-               VALUES (?, 'direct', ?, ?, ?, ?)`,
-              remoteId,
+            const existingConv = this.db.get<{ id: string }>(
+              'SELECT id FROM social_conversations WHERE pair_low = ? AND pair_high = ?',
               low,
-              high,
-              createdAt,
-              updatedAt
-            )
-            this.db.run(
-              `INSERT OR IGNORE INTO social_participants (conversation_id, user_id, last_read_at, muted, hidden, cleared_before)
-               VALUES (?, ?, NULL, 0, 0, NULL), (?, ?, NULL, 0, 0, NULL)`,
-              remoteId,
-              low,
-              remoteId,
               high
             )
-          } else if (existingConv.id !== remoteId) {
-            // Align local conversation ID with the canonical cloud conversation ID
-            this.db.transaction(() => {
+            if (!existingConv) {
+              this.db.run(
+                `INSERT INTO social_conversations (id, type, pair_low, pair_high, created_at, updated_at)
+                 VALUES (?, 'direct', ?, ?, ?, ?)`,
+                remoteId,
+                low,
+                high,
+                createdAt,
+                updatedAt
+              )
+              this.db.run(
+                `INSERT OR IGNORE INTO social_participants (conversation_id, user_id, last_read_at, muted, hidden, cleared_before)
+                 VALUES (?, ?, NULL, 0, 0, NULL), (?, ?, NULL, 0, 0, NULL)`,
+                remoteId,
+                low,
+                remoteId,
+                high
+              )
+            } else if (existingConv.id !== remoteId) {
               this.db.run(
                 `INSERT OR IGNORE INTO social_conversations (id, type, pair_low, pair_high, created_at, updated_at)
                  VALUES (?, 'direct', ?, ?, ?, ?)`,
@@ -1105,17 +1215,11 @@ export class SocialService implements SocialApi {
                 existingConv.id
               )
               this.db.run('DELETE FROM social_conversations WHERE id = ?', existingConv.id)
-            })
+            }
+            this.syncedCloudConversations.add(remoteId)
+            this.lastConvSyncAt.set(remoteId, syncTimestamp)
           }
-        }
 
-        if (convIds.length > 0) {
-          const remoteMessages = await client
-            .rest<Array<Record<string, unknown>>>(
-              `messages?conversation_id=in.(${convIds.join(',')})&order=created_at.desc&limit=100`,
-              token
-            )
-            .catch(() => null)
           if (Array.isArray(remoteMessages)) {
             for (const rm of remoteMessages) {
               const msgId = String(rm.id || '')
@@ -1123,10 +1227,11 @@ export class SocialService implements SocialApi {
               const senderId = String(rm.sender_id || '')
               const clientMsgId = String(rm.client_message_id || msgId)
               const body = String(rm.body || '')
-              const createdAt = String(rm.created_at || new Date(this.now()).toISOString())
+              const createdAt = String(rm.created_at || new Date(syncTimestamp).toISOString())
               if (!msgId || !convId || !senderId || !body) continue
               if (!this.loadProfileById(senderId)) continue
-              this.db.run(
+
+              const result = this.db.run(
                 `INSERT OR IGNORE INTO social_messages (id, conversation_id, sender_id, client_message_id, body, created_at)
                  VALUES (?, ?, ?, ?, ?, ?)`,
                 msgId,
@@ -1142,9 +1247,31 @@ export class SocialService implements SocialApi {
                 createdAt,
                 convId
               )
+              if (result.changes > 0 && senderId !== userId) {
+                newlyReceivedMessages.push({
+                  conversationId: convId,
+                  message: {
+                    id: msgId,
+                    conversationId: convId,
+                    senderId,
+                    clientMessageId: clientMsgId,
+                    body,
+                    createdAt,
+                    deliveryStatus: 'delivered'
+                  }
+                })
+              }
             }
           }
         }
+      })
+
+      for (const item of newlyReceivedMessages.reverse()) {
+        this.emit({
+          type: 'message-received',
+          conversationId: item.conversationId,
+          message: item.message
+        })
       }
     } catch {
       // Ignore network errors and rely on local SQLite state
@@ -1161,6 +1288,7 @@ export class SocialService implements SocialApi {
     userB: string
   ): Promise<string> {
     if (!isUuid(userA) || !isUuid(userB)) return localConvId
+    if (this.syncedCloudConversations.has(localConvId)) return localConvId
     const cloud = await this.getCloudClientAndToken()
     if (!cloud) return localConvId
     const { client, token } = cloud
@@ -1220,6 +1348,7 @@ export class SocialService implements SocialApi {
         })
         .catch(() => undefined)
 
+      this.syncedCloudConversations.add(canonicalId)
       return canonicalId
     } catch {
       return localConvId
@@ -1243,7 +1372,9 @@ export class SocialService implements SocialApi {
     }
 
     const userId = this.activeSession.userId
-    await this.pullCloudSocialGraph(userId)
+    if (this.now() >= this.localOnlyStateChangeUntil) {
+      await this.pullCloudSocialGraph(userId)
+    }
 
     const profile = this.loadProfileById(userId)
     if (!profile) {
@@ -2189,10 +2320,117 @@ export class SocialService implements SocialApi {
       userId
     )
 
+    this.localOnlyStateChangeUntil = this.now() + 500
     this.emit({ type: 'state-changed' })
     const summary = this.listConversationsForUser(userId).find((c) => c.id === id)
     if (!summary) throw new Error('Could not open conversation.')
     return summary
+  }
+
+  private async syncConversationMessagesFromCloud(
+    conversationId: string,
+    userId: string,
+    limit: number,
+    before?: string
+  ): Promise<void> {
+    const existingTask = this.convSyncInFlight.get(conversationId)
+    if (existingTask && !before) {
+      return existingTask
+    }
+
+    const run = async (): Promise<void> => {
+      const cloud = await this.getCloudClientAndToken()
+      if (!cloud) return
+
+      const latestLocal = !before
+        ? this.db.get<{ created_at: string }>(
+            'SELECT created_at FROM social_messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 1',
+            conversationId
+          )
+        : undefined
+
+      const queryParts = [
+        `conversation_id=eq.${encodeURIComponent(conversationId)}`,
+        'order=created_at.desc',
+        `limit=${limit}`
+      ]
+      if (before) {
+        queryParts.push(`created_at=lt.${encodeURIComponent(before)}`)
+      } else if (latestLocal?.created_at) {
+        queryParts.push(`created_at=gt.${encodeURIComponent(latestLocal.created_at)}`)
+      }
+
+      const remoteMessages = await cloud.client
+        .rest<Array<Record<string, unknown>>>(`messages?${queryParts.join('&')}`, cloud.token)
+        .catch(() => null)
+
+      this.lastConvSyncAt.set(conversationId, this.now())
+      if (!Array.isArray(remoteMessages) || remoteMessages.length === 0) return
+
+      const newlyReceived: DirectMessage[] = []
+      const nowIso = new Date(this.now()).toISOString()
+
+      this.db.transaction(() => {
+        for (const rm of remoteMessages) {
+          const msgId = String(rm.id || '')
+          const senderId = String(rm.sender_id || '')
+          const clientMsgId = String(rm.client_message_id || msgId)
+          const body = String(rm.body || '')
+          const createdAt = String(rm.created_at || nowIso)
+          if (!msgId || !senderId || !body) continue
+          if (!this.loadProfileById(senderId)) continue
+          const res = this.db.run(
+            `INSERT OR IGNORE INTO social_messages (id, conversation_id, sender_id, client_message_id, body, created_at)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            msgId,
+            conversationId,
+            senderId,
+            clientMsgId,
+            body,
+            createdAt
+          )
+          this.db.run(
+            'UPDATE social_conversations SET updated_at = CASE WHEN updated_at < ? THEN ? ELSE updated_at END WHERE id = ?',
+            createdAt,
+            createdAt,
+            conversationId
+          )
+          if (res.changes > 0 && senderId !== userId) {
+            newlyReceived.push({
+              id: msgId,
+              conversationId,
+              senderId,
+              clientMessageId: clientMsgId,
+              body,
+              createdAt,
+              deliveryStatus: 'delivered'
+            })
+          }
+        }
+      })
+
+      if (newlyReceived.length > 0) {
+        for (const msg of newlyReceived.reverse()) {
+          this.emit({
+            type: 'message-received',
+            conversationId,
+            message: msg
+          })
+        }
+        this.localOnlyStateChangeUntil = this.now() + 500
+        this.emit({ type: 'state-changed' })
+      }
+    }
+
+    const promise = run().finally(() => {
+      if (this.convSyncInFlight.get(conversationId) === promise) {
+        this.convSyncInFlight.delete(conversationId)
+      }
+    })
+    if (!before) {
+      this.convSyncInFlight.set(conversationId, promise)
+    }
+    return promise
   }
 
   async listMessages(
@@ -2203,71 +2441,74 @@ export class SocialService implements SocialApi {
     const { clearedBefore, otherUserId } = this.assertConversationParticipant(conversationId, userId)
     const limit = Math.max(1, Math.min(200, options?.limit ?? 80))
 
+    const readLocalRows = (): DirectMessage[] => {
+      const rows = this.db.all<{
+        id: string
+        conversation_id: string
+        sender_id: string
+        client_message_id: string
+        body: string
+        created_at: string
+      }>(
+        `SELECT id, conversation_id, sender_id, client_message_id, body, created_at
+         FROM social_messages
+         WHERE conversation_id = ?
+           AND (? IS NULL OR created_at > ?)
+           AND (? IS NULL OR created_at < ?)
+         ORDER BY created_at DESC, rowid DESC
+         LIMIT ?`,
+        conversationId,
+        clearedBefore,
+        clearedBefore,
+        options?.before ?? null,
+        options?.before ?? null,
+        limit
+      )
+
+      return rows.reverse().map((row) => ({
+        id: row.id,
+        conversationId: row.conversation_id,
+        senderId: row.sender_id,
+        clientMessageId: row.client_message_id,
+        body: row.body,
+        createdAt: row.created_at,
+        deliveryStatus: 'delivered'
+      }))
+    }
+
+    const initialLocal = readLocalRows()
+
     if (isUuid(conversationId) && isUuid(userId) && isUuid(otherUserId)) {
-      const cloud = await this.getCloudClientAndToken()
-      if (cloud) {
-        const remoteMessages = await cloud.client
-          .rest<Array<Record<string, unknown>>>(
-            `messages?conversation_id=eq.${encodeURIComponent(conversationId)}&order=created_at.desc&limit=${limit}`,
-            cloud.token
-          )
-          .catch(() => null)
-        if (Array.isArray(remoteMessages)) {
-          for (const rm of remoteMessages) {
-            const msgId = String(rm.id || '')
-            const senderId = String(rm.sender_id || '')
-            const clientMsgId = String(rm.client_message_id || msgId)
-            const body = String(rm.body || '')
-            const createdAt = String(rm.created_at || new Date(this.now()).toISOString())
-            if (!msgId || !senderId || !body) continue
-            if (!this.loadProfileById(senderId)) continue
-            this.db.run(
-              `INSERT OR IGNORE INTO social_messages (id, conversation_id, sender_id, client_message_id, body, created_at)
-               VALUES (?, ?, ?, ?, ?, ?)`,
-              msgId,
-              conversationId,
-              senderId,
-              clientMsgId,
-              body,
-              createdAt
-            )
-          }
+      const lastSync = this.lastConvSyncAt.get(conversationId) ?? 0
+      const recentlySynced = !options?.before && this.now() - lastSync < 1_500
+      if (!recentlySynced) {
+        const syncTask = this.syncConversationMessagesFromCloud(
+          conversationId,
+          userId,
+          limit,
+          options?.before
+        )
+        if (initialLocal.length > 0 && !options?.before) {
+          // Return cached SQLite messages nearly instantaneously while allowing fast/mocked delta syncs to settle
+          await Promise.race([
+            syncTask,
+            new Promise<void>((resolve) => {
+              setTimeout(resolve, 60)
+            })
+          ])
+        } else {
+          await Promise.race([
+            syncTask,
+            new Promise<void>((resolve) => {
+              setTimeout(resolve, 2_000)
+            })
+          ])
         }
+        return readLocalRows()
       }
     }
 
-    const rows = this.db.all<{
-      id: string
-      conversation_id: string
-      sender_id: string
-      client_message_id: string
-      body: string
-      created_at: string
-    }>(
-      `SELECT id, conversation_id, sender_id, client_message_id, body, created_at
-       FROM social_messages
-       WHERE conversation_id = ?
-         AND (? IS NULL OR created_at > ?)
-         AND (? IS NULL OR created_at < ?)
-       ORDER BY created_at DESC, rowid DESC
-       LIMIT ?`,
-      conversationId,
-      clearedBefore,
-      clearedBefore,
-      options?.before ?? null,
-      options?.before ?? null,
-      limit
-    )
-
-    return rows.reverse().map((row) => ({
-      id: row.id,
-      conversationId: row.conversation_id,
-      senderId: row.sender_id,
-      clientMessageId: row.client_message_id,
-      body: row.body,
-      createdAt: row.created_at,
-      deliveryStatus: 'delivered'
-    }))
+    return initialLocal
   }
 
   async sendMessage(input: SendMessageInput): Promise<DirectMessage> {
@@ -2310,11 +2551,14 @@ export class SocialService implements SocialApi {
       }
     }
 
-    const activeConversationId = await this.ensureCloudConversation(
-      input.conversationId,
-      senderId,
-      otherUserId
-    )
+    let activeConversationId = input.conversationId
+    if (!this.syncedCloudConversations.has(activeConversationId)) {
+      activeConversationId = await this.ensureCloudConversation(
+        input.conversationId,
+        senderId,
+        otherUserId
+      )
+    }
     const id = randomUUID()
     const nowIso = new Date(this.now()).toISOString()
 
@@ -2346,24 +2590,56 @@ export class SocialService implements SocialApi {
       const cloud = await this.getCloudClientAndToken()
       if (cloud) {
         try {
-          await cloud.client.rest('messages?on_conflict=conversation_id,sender_id,client_message_id', cloud.token, {
-            method: 'POST',
-            prefer: 'resolution=merge-duplicates',
-            body: {
-              id,
-              conversation_id: activeConversationId,
-              sender_id: senderId,
-              client_message_id: clientMessageId,
-              body,
-              created_at: nowIso
-            }
-          })
-          await cloud.client
-            .rest(`conversations?id=eq.${encodeURIComponent(activeConversationId)}`, cloud.token, {
-              method: 'PATCH',
-              body: { updated_at: nowIso }
-            })
-            .catch(() => undefined)
+          const rpcResult = await cloud.client
+            .rpc<Record<string, unknown>>(
+              'send_direct_message',
+              {
+                p_conversation_id: activeConversationId,
+                p_sender_id: senderId,
+                p_recipient_id: otherUserId,
+                p_message_id: id,
+                p_client_message_id: clientMessageId,
+                p_body: body,
+                p_created_at: nowIso
+              },
+              cloud.token
+            )
+            .catch(() => null)
+
+          const usedRpc =
+            rpcResult !== null &&
+            typeof rpcResult === 'object' &&
+            !Array.isArray(rpcResult) &&
+            rpcResult.ok === true
+
+          if (!usedRpc) {
+            await Promise.all([
+              cloud.client.rest(
+                'messages?on_conflict=conversation_id,sender_id,client_message_id',
+                cloud.token,
+                {
+                  method: 'POST',
+                  prefer: 'resolution=merge-duplicates',
+                  body: {
+                    id,
+                    conversation_id: activeConversationId,
+                    sender_id: senderId,
+                    client_message_id: clientMessageId,
+                    body,
+                    created_at: nowIso
+                  }
+                }
+              ),
+              cloud.client
+                .rest(`conversations?id=eq.${encodeURIComponent(activeConversationId)}`, cloud.token, {
+                  method: 'PATCH',
+                  body: { updated_at: nowIso }
+                })
+                .catch(() => undefined)
+            ])
+          }
+          this.syncedCloudConversations.add(activeConversationId)
+          this.lastConvSyncAt.set(activeConversationId, this.now())
         } catch {
           // Proceed with local message if offline
         }
@@ -2414,6 +2690,7 @@ export class SocialService implements SocialApi {
       })
     }
 
+    this.localOnlyStateChangeUntil = this.now() + 500
     this.emit({ type: 'state-changed' })
     return sent
   }
@@ -2428,6 +2705,7 @@ export class SocialService implements SocialApi {
       conversationId,
       userId
     )
+    this.localOnlyStateChangeUntil = this.now() + 500
     this.emit({ type: 'state-changed' })
   }
 
@@ -2440,6 +2718,7 @@ export class SocialService implements SocialApi {
       conversationId,
       userId
     )
+    this.localOnlyStateChangeUntil = this.now() + 500
     this.emit({ type: 'state-changed' })
   }
 
@@ -2452,6 +2731,7 @@ export class SocialService implements SocialApi {
       conversationId,
       userId
     )
+    this.localOnlyStateChangeUntil = this.now() + 500
     this.emit({ type: 'state-changed' })
   }
 
@@ -2466,6 +2746,7 @@ export class SocialService implements SocialApi {
       conversationId,
       userId
     )
+    this.localOnlyStateChangeUntil = this.now() + 500
     this.emit({ type: 'state-changed' })
   }
 

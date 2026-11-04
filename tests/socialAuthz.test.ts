@@ -738,6 +738,57 @@ describe('Milestone 7 — Social Accounts, Friend Codes, Custom Profiles & Autho
       if (path === '/rest/v1/conversation_participants') {
         return jsonRes([])
       }
+      if (path === '/rest/v1/rpc/send_direct_message') {
+        const [low, high] =
+          String(body.p_sender_id) < String(body.p_recipient_id)
+            ? [String(body.p_sender_id), String(body.p_recipient_id)]
+            : [String(body.p_recipient_id), String(body.p_sender_id)]
+        const convKey = `${low}:${high}`
+        const conv = cloudConversations.get(convKey) ?? {
+          id: body.p_conversation_id,
+          type: 'direct',
+          pair_low: low,
+          pair_high: high,
+          created_at: body.p_created_at,
+          updated_at: body.p_created_at
+        }
+        conv.updated_at = body.p_created_at
+        cloudConversations.set(convKey, conv)
+        const msg = {
+          id: body.p_message_id,
+          conversation_id: conv.id,
+          sender_id: body.p_sender_id,
+          client_message_id: body.p_client_message_id,
+          body: body.p_body,
+          created_at: body.p_created_at
+        }
+        cloudMessages.push(msg)
+        return jsonRes({ ok: true, conversation_id: conv.id, message: msg })
+      }
+      if (path === '/rest/v1/rpc/pull_social_snapshot') {
+        const uid = String(body.p_user_id || '')
+        const friendships = Array.from(cloudFriendships.values()).filter(
+          (f) => f.requester_id === uid || f.recipient_id === uid
+        )
+        const conversations = Array.from(cloudConversations.values()).filter(
+          (c) => c.pair_low === uid || c.pair_high === uid
+        )
+        const convIds = new Set(conversations.map((c) => String(c.id)))
+        const messages = [...cloudMessages]
+          .filter((m) => convIds.has(String(m.conversation_id)))
+          .reverse()
+        const profiles = Array.from(cloudProfiles.values()).filter(
+          (p) => String(p.user_id) !== uid
+        )
+        return jsonRes({
+          ok: true,
+          blocks: [],
+          friendships,
+          conversations,
+          profiles,
+          messages
+        })
+      }
       if (path === '/rest/v1/messages') {
         if (method === 'POST') {
           cloudMessages.push(body)

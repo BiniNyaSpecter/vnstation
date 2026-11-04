@@ -196,6 +196,8 @@ export const appStore = createStore<AppStore>((set, get) => {
 
   let unsubscribeLauncher: (() => void) | null = null
   let unsubscribeSocial: (() => void) | null = null
+  let refreshSocialInFlight: Promise<void> | null = null
+  let refreshSocialPending = false
 
   const onSocialEvent = (event: SocialEvent): void => {
     void get().refreshSocial()
@@ -296,19 +298,34 @@ export const appStore = createStore<AppStore>((set, get) => {
     },
 
     async refreshSocial() {
-      try {
-        const prevUserId = get().social?.user?.id ?? null
-        const next = await services.social.getState()
-        const nextUserId = next.user?.id ?? null
-        if (prevUserId !== nextUserId) {
-          // Account changed or signed out: wipe cached conversation state immediately.
-          set({ social: next, activeConversationId: null, draftMessages: {} })
-        } else {
-          set({ social: next })
-        }
-      } catch {
-        // Keep existing state if social service is temporarily unreachable
+      if (refreshSocialInFlight) {
+        refreshSocialPending = true
+        return refreshSocialInFlight
       }
+
+      const run = async (): Promise<void> => {
+        do {
+          refreshSocialPending = false
+          try {
+            const prevUserId = get().social?.user?.id ?? null
+            const next = await services.social.getState()
+            const nextUserId = next.user?.id ?? null
+            if (prevUserId !== nextUserId) {
+              // Account changed or signed out: wipe cached conversation state immediately.
+              set({ social: next, activeConversationId: null, draftMessages: {} })
+            } else {
+              set({ social: next })
+            }
+          } catch {
+            // Keep existing state if social service is temporarily unreachable
+          }
+        } while (refreshSocialPending)
+      }
+
+      refreshSocialInFlight = run().finally(() => {
+        refreshSocialInFlight = null
+      })
+      return refreshSocialInFlight
     },
 
     setActiveConversation(conversationId) {
