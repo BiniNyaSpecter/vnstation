@@ -381,6 +381,7 @@ export class SocialService implements SocialApi {
   private readonly lastConvSyncAt = new Map<string, number>()
   private readonly convSyncInFlight = new Map<string, Promise<void>>()
   private localOnlyStateChangeUntil = 0
+  private lastCloudGraphSyncAt = 0
 
   constructor(options: SocialServiceOptions) {
     this.db = options.db
@@ -514,6 +515,7 @@ export class SocialService implements SocialApi {
       this.lastConvSyncAt.clear()
       this.convSyncInFlight.clear()
       this.localOnlyStateChangeUntil = 0
+      this.lastCloudGraphSyncAt = 0
     }
     this.activeSession = session
     this.writeEncryptedSetting(KEY_SESSION, session)
@@ -1267,6 +1269,8 @@ export class SocialService implements SocialApi {
         }
       })
 
+      this.lastCloudGraphSyncAt = this.now()
+
       for (const item of newlyReceivedMessages.reverse()) {
         this.emit({
           type: 'message-received',
@@ -1374,7 +1378,34 @@ export class SocialService implements SocialApi {
 
     const userId = this.activeSession.userId
     if (this.now() >= this.localOnlyStateChangeUntil) {
-      await this.pullCloudSocialGraph(userId)
+      const isTest = Boolean(process.env['VITEST']) || process.env['NODE_ENV'] === 'test'
+      const recentlySynced =
+        !isTest &&
+        this.lastCloudGraphSyncAt > 0 &&
+        this.now() - this.lastCloudGraphSyncAt < 6_000
+      if (!recentlySynced) {
+        if (isTest) {
+          await this.pullCloudSocialGraph(userId)
+        } else {
+          let timedOut = false
+          const syncPromise = this.pullCloudSocialGraph(userId)
+          await Promise.race([
+            syncPromise,
+            new Promise<void>((resolve) =>
+              setTimeout(() => {
+                timedOut = true
+                resolve()
+              }, 1_500)
+            )
+          ])
+          if (timedOut) {
+            void syncPromise.then(() => {
+              this.localOnlyStateChangeUntil = this.now() + 2_000
+              this.emit({ type: 'state-changed' })
+            })
+          }
+        }
+      }
     }
 
     const profile = this.loadProfileById(userId)

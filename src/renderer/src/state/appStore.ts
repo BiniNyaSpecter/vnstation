@@ -257,18 +257,19 @@ export const appStore = createStore<AppStore>((set, get) => {
     draftMessages: {},
 
     async init() {
-      set({ status: 'loading' })
+      if (get().entries.length === 0) {
+        set({ status: 'loading' })
+      }
       unsubscribeLauncher?.()
       unsubscribeLauncher = services.launcher.subscribe(onLauncherEvent)
       unsubscribeSocial?.()
       unsubscribeSocial = services.social.subscribe(onSocialEvent)
       try {
-        const [snapshot, appInfo, prefs, runningList, socialState] = await Promise.all([
+        const [snapshot, appInfo, prefs, runningList] = await Promise.all([
           services.library.load(),
           bridge ? bridge.app.getInfo().catch(() => null) : Promise.resolve(null),
           loadPreferences(),
-          services.launcher.running().catch(() => []),
-          services.social.getState().catch(() => EMPTY_SOCIAL_STATE)
+          services.launcher.running().catch(() => [])
         ])
         const games = resolveEntries(snapshot.entries)
         const runningGames: Record<string, RunningGame> = {}
@@ -281,11 +282,14 @@ export const appStore = createStore<AppStore>((set, get) => {
           appInfo,
           prefs,
           runningGames,
-          social: socialState,
           selectedGameId: firstVisible(games)?.id ?? null
         })
+        await Promise.race([
+          get().refreshSocial(),
+          new Promise<void>((resolve) => setTimeout(resolve, 50))
+        ])
       } catch {
-        set({ status: 'error' })
+        set({ status: get().entries.length > 0 ? 'ready' : 'error' })
       }
     },
 
@@ -308,7 +312,12 @@ export const appStore = createStore<AppStore>((set, get) => {
           refreshSocialPending = false
           try {
             const prevUserId = get().social?.user?.id ?? null
-            const next = await services.social.getState()
+            const next = await Promise.race([
+              services.social.getState(),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Social state timeout')), 6_000)
+              )
+            ])
             const nextUserId = next.user?.id ?? null
             if (prevUserId !== nextUserId) {
               // Account changed or signed out: wipe cached conversation state immediately.

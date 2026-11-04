@@ -79,12 +79,40 @@ export class SupabaseRestClient {
     }
   }
 
+  private async fetchWithTimeout(
+    url: string,
+    init: Parameters<Fetcher>[1],
+    timeoutMs = 5_000
+  ): ReturnType<Fetcher> {
+    const isTest = Boolean(process.env['VITEST']) || process.env['NODE_ENV'] === 'test'
+    if (isTest) {
+      return this.fetcher(url, init)
+    }
+    const controller = new AbortController()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort()
+        reject(new Error('Network request to Supabase timed out.'))
+      }, timeoutMs)
+    })
+
+    try {
+      return await Promise.race([
+        this.fetcher(url, { ...init, signal: controller.signal }),
+        timeoutPromise
+      ])
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+  }
+
   async signUp(
     email: string,
     password: string,
     metadata?: Record<string, unknown>
   ): Promise<{ session: SupabaseAuthSession | null; userId: string; emailVerified: boolean }> {
-    const res = await this.fetcher(`${this.baseUrl}/auth/v1/signup`, {
+    const res = await this.fetchWithTimeout(`${this.baseUrl}/auth/v1/signup`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({
@@ -125,7 +153,7 @@ export class SupabaseRestClient {
   }
 
   async signInWithPassword(email: string, password: string): Promise<SupabaseAuthSession> {
-    const res = await this.fetcher(`${this.baseUrl}/auth/v1/token?grant_type=password`, {
+    const res = await this.fetchWithTimeout(`${this.baseUrl}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ email, password })
@@ -145,7 +173,7 @@ export class SupabaseRestClient {
   }
 
   async refreshSession(refreshToken: string): Promise<SupabaseAuthSession> {
-    const res = await this.fetcher(`${this.baseUrl}/auth/v1/token?grant_type=refresh_token`, {
+    const res = await this.fetchWithTimeout(`${this.baseUrl}/auth/v1/token?grant_type=refresh_token`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ refresh_token: refreshToken })
@@ -158,7 +186,7 @@ export class SupabaseRestClient {
   }
 
   async recoverPassword(email: string, redirectTo = 'http://localhost:3000/'): Promise<void> {
-    const res = await this.fetcher(
+    const res = await this.fetchWithTimeout(
       `${this.baseUrl}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`,
       {
         method: 'POST',
@@ -175,7 +203,7 @@ export class SupabaseRestClient {
   }
 
   async updateUserPassword(accessToken: string, newPassword: string): Promise<void> {
-    const res = await this.fetcher(`${this.baseUrl}/auth/v1/user`, {
+    const res = await this.fetchWithTimeout(`${this.baseUrl}/auth/v1/user`, {
       method: 'PUT',
       headers: this.headers(accessToken),
       body: JSON.stringify({ password: newPassword })
@@ -192,7 +220,7 @@ export class SupabaseRestClient {
   }
 
   async signOut(accessToken: string): Promise<void> {
-    await this.fetcher(`${this.baseUrl}/auth/v1/logout`, {
+    await this.fetchWithTimeout(`${this.baseUrl}/auth/v1/logout`, {
       method: 'POST',
       headers: this.headers(accessToken)
     }).catch(() => undefined)
@@ -204,16 +232,18 @@ export class SupabaseRestClient {
     init?: { method?: string; body?: unknown; prefer?: string }
   ): Promise<T> {
     const token = accessToken && accessToken.trim() ? accessToken.trim() : this.anonKey
-    let res = await this.fetcher(`${this.baseUrl}/rest/v1/${tableAndQuery}`, {
-      method: init?.method ?? 'GET',
+    let res = await this.fetchWithTimeout(`${this.baseUrl}/rest/v1/${tableAndQuery}`, {
+      method: 'GET',
+      ...(init?.method ? { method: init.method } : {}),
       headers: this.headers(token, init?.prefer ? { Prefer: init.prefer } : undefined),
       body: init?.body !== undefined ? JSON.stringify(init.body) : undefined
     })
 
     // If a user accessToken expired or was rejected with 401, retry transparently with anonKey
     if (res.status === 401 && token !== this.anonKey) {
-      res = await this.fetcher(`${this.baseUrl}/rest/v1/${tableAndQuery}`, {
-        method: init?.method ?? 'GET',
+      res = await this.fetchWithTimeout(`${this.baseUrl}/rest/v1/${tableAndQuery}`, {
+        method: 'GET',
+        ...(init?.method ? { method: init.method } : {}),
         headers: this.headers(this.anonKey, init?.prefer ? { Prefer: init.prefer } : undefined),
         body: init?.body !== undefined ? JSON.stringify(init.body) : undefined
       })

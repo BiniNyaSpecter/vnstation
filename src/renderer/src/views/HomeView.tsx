@@ -36,7 +36,7 @@ export function HomeView() {
     return list.filter((shelf) => shelf.games.length > 0)
   }, [visible, collections, defaultSort])
 
-  if (status === 'loading') return <HomeSkeleton />
+  if (status === 'loading' && visible.length === 0) return <HomeSkeleton />
   if (status === 'error') return <p className="view-error">Your library could not be loaded. Restart VNStation and try again.</p>
   if (!selected) return <FirstRun />
 

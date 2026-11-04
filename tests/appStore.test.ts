@@ -44,6 +44,27 @@ describe('loading', () => {
   it('flags development data as sample data', () => {
     expect(state().games.every((game) => game.isSample)).toBe(true)
   })
+
+  it('reaches ready status even if social backend getState hangs indefinitely', async () => {
+    const prevSocial = services.social
+    let unblockSocial = (): void => undefined
+    try {
+      appStore.setState({ entries: [], games: [], status: 'loading' })
+      services.social = {
+        ...prevSocial,
+        getState: () =>
+          new Promise((resolve) => {
+            unblockSocial = () => resolve(state().social)
+          })
+      }
+      await state().init()
+      expect(state().status).toBe('ready')
+      expect(state().games.length).toBeGreaterThan(10)
+    } finally {
+      unblockSocial()
+      services.social = prevSocial
+    }
+  })
 })
 
 describe('navigation', () => {
