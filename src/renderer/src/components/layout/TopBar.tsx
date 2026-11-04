@@ -66,7 +66,7 @@ export function TopBar() {
             Sample games shown
           </span>
         )}
-        <label className="search">
+        <label className={cx('search', Boolean(search) && 'is-active')}>
           <Icon name="search" size={18} />
           <input
             id="global-search"
