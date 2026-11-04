@@ -168,10 +168,21 @@
   height: var(--topbar-h);
   padding: 10px var(--gutter) 0;
   pointer-events: none;
+  transition: transform 220ms var(--ease), opacity 180ms var(--ease);
 }
 
 .topbar > * {
   pointer-events: auto;
+}
+
+.topbar.topbar--hidden:not(:focus-within) {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.topbar.topbar--hidden:not(:focus-within) > * {
+  pointer-events: none;
 }
 
 /* Soft fade so scrolled content never collides with the controls. */

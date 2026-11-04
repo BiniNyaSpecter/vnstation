@@ -60,7 +60,7 @@ export function ensureVisibleVertically(element: HTMLElement): void {
   const scroller = element.closest<HTMLElement>('[data-scroll-y]')
   if (!scroller) return
 
-  if (element.closest('.home__screen, .details__hero')) {
+  if (element.closest('.home__screen, .details__hero') || element.closest('.lib--shelf')) {
     if (scroller.scrollTop > 0) animateScroll(scroller, { top: 0 }, 320)
     return
   }

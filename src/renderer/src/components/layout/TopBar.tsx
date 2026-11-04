@@ -8,6 +8,7 @@ import { TopNav } from './TopNav'
 
 export function TopBar() {
   const navLayout = useAppStore((state) => state.prefs.navLayout)
+  const route = useAppStore((state) => state.route)
   const onSettings = useAppStore((state) => state.history[0].name === 'settings')
   const navigate = useAppStore((state) => state.navigate)
   const search = useAppStore((state) => state.search)
@@ -16,6 +17,7 @@ export function TopBar() {
   const showingSamples = useAppStore((state) => state.games.some((game) => game.isSample))
   const [now, setNow] = useState(() => new Date())
   const [online, setOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true))
+  const [scrolledDown, setScrolledDown] = useState(false)
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 15_000)
@@ -30,8 +32,23 @@ export function TopBar() {
     }
   }, [])
 
+  useEffect(() => {
+    const scroller = document.querySelector<HTMLElement>('[data-scroll-y]')
+    setScrolledDown((scroller?.scrollTop ?? 0) > 12)
+  }, [route])
+
+  useEffect(() => {
+    const onScroll = (event: Event): void => {
+      const target = event.target
+      if (!(target instanceof HTMLElement) || !target.hasAttribute('data-scroll-y')) return
+      setScrolledDown(target.scrollTop > 12)
+    }
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true })
+    return () => window.removeEventListener('scroll', onScroll, { capture: true })
+  }, [])
+
   return (
-    <header className="topbar">
+    <header className={cx('topbar', scrolledDown && 'topbar--hidden')}>
       {navLayout === 'top' && (
         <>
           <Icon name="mark" size={26} className="topbar__mark" />
