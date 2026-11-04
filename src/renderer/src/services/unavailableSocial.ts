@@ -26,6 +26,7 @@ export const unavailableSocial: SocialApi = {
   login: rejectUnavailable,
   logout: async () => emptyState,
   requestPasswordReset: rejectUnavailable,
+  resetPassword: rejectUnavailable,
   deleteAccount: rejectUnavailable,
   updateProfile: rejectUnavailable,
   getProfileView: rejectUnavailable,

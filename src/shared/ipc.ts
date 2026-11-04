@@ -65,6 +65,7 @@ export const IPC = {
     login: 'social:login',
     logout: 'social:logout',
     requestPasswordReset: 'social:request-password-reset',
+    resetPassword: 'social:reset-password',
     deleteAccount: 'social:delete-account',
     updateProfile: 'social:update-profile',
     getProfileView: 'social:get-profile-view',

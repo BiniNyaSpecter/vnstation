@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, Menu, net, protocol, safeStorage, shell } from 'electron'
+import type { Server } from 'node:http'
 import { join } from 'node:path'
 import { APP_CONFIG } from '@shared/app-config'
 import { IPC } from '@shared/ipc'
@@ -18,6 +19,7 @@ import { MetadataService } from './metadata/metadataService'
 import { RequestScheduler } from './metadata/scheduler'
 import { VndbProvider } from './metadata/vndb'
 import { createTrustedUrlGuard, hardenWebContents } from './security'
+import { startLocalRecoveryServer } from './social/recoveryServer'
 import { SocialService } from './social/socialService'
 import { detectLocalSteamPath } from './steam/localSteam'
 import { SteamService } from './steam/steamService'
@@ -34,6 +36,7 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'vnstation-art', privileges: { s
 
 let database: Database | null = null
 let launcher: ProcessGameLauncher | null = null
+let recoveryServer: Server | null = null
 
 function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -150,6 +153,15 @@ async function start(): Promise<void> {
     }
   })
 
+  recoveryServer = startLocalRecoveryServer(social, () => {
+    const [win] = BrowserWindow.getAllWindows()
+    if (win && !win.isDestroyed()) {
+      if (win.isMinimized()) win.restore()
+      win.show()
+      win.focus()
+    }
+  })
+
   launcher = new ProcessGameLauncher({
     store,
     probeFolder: probeWindowsFolderActivity,
@@ -249,6 +261,8 @@ if (!app.requestSingleInstanceLock()) {
     if (process.platform !== 'darwin') app.quit()
   })
   app.on('will-quit', () => {
+    recoveryServer?.close()
+    recoveryServer = null
     launcher?.closeAllRunning()
     launcher = null
     database?.close()

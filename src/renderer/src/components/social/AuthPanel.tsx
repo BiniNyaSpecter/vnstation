@@ -18,11 +18,32 @@ export function AuthPanel({ subtitle }: { subtitle?: string }) {
   const [tab, setTab] = useState<AuthTab>('register')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [verification, setVerification] = useState('')
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [avatarPreset] = useState<AvatarPresetId>('aoko')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const handleSendResetEmail = async () => {
+    if (!email.trim()) {
+      setError('Please enter your account email address first.')
+      return
+    }
+    setError(null)
+    setBusy(true)
+    try {
+      const res = await services.social.requestPasswordReset(email)
+      showToast(res.message, 'info')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not send reset email.'
+      setError(message)
+      showToast(message, 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -47,9 +68,19 @@ export function AuthPanel({ subtitle }: { subtitle?: string }) {
         await refreshSocial()
         showToast(`Signed in as ${next.profile?.displayName ?? email}.`, 'success')
       } else {
-        const res = await services.social.requestPasswordReset(email)
-        showToast(res.message, 'info')
-        setTab('login')
+        if (password !== confirmPassword) {
+          throw new Error('New password and confirmation do not match.')
+        }
+        const next = await services.social.resetPassword({
+          email,
+          newPassword: password,
+          verification: verification.trim() || undefined
+        })
+        await refreshSocial()
+        showToast(
+          `Password updated! Signed in as ${next.profile?.displayName ?? email}.`,
+          'success'
+        )
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Authentication failed.'
@@ -139,20 +170,55 @@ export function AuthPanel({ subtitle }: { subtitle?: string }) {
             />
           </label>
 
-          {tab !== 'reset' && (
-            <label className="field">
-              <span className="field__label">Password (at least 8 characters)</span>
-              <input
-                type="password"
-                className="input"
-                required
-                minLength={8}
-                placeholder="••••••••"
-                value={password}
-                data-nav=""
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </label>
+          <label className="field">
+            <span className="field__label">
+              {tab === 'reset'
+                ? 'New password (at least 8 characters)'
+                : 'Password (at least 8 characters)'}
+            </span>
+            <input
+              type="password"
+              className="input"
+              required
+              minLength={8}
+              placeholder="••••••••"
+              value={password}
+              data-nav=""
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
+
+          {tab === 'reset' && (
+            <div className="social-auth__row">
+              <label className="field">
+                <span className="field__label">Confirm new password</span>
+                <input
+                  type="password"
+                  className="input"
+                  required
+                  minLength={8}
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  data-nav=""
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </label>
+
+              <label className="field">
+                <span className="field__label">Username or Friend Code (optional)</span>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="kotori_reader or VNS-XXXX-XXXX"
+                  value={verification}
+                  data-nav=""
+                  onChange={(e) => setVerification(e.target.value)}
+                />
+                <span className="field__hint">
+                  Verifies your profile directly in VNStation (no browser redirect required)
+                </span>
+              </label>
+            </div>
           )}
 
           {tab === 'register' && (
@@ -205,8 +271,18 @@ export function AuthPanel({ subtitle }: { subtitle?: string }) {
                   ? 'Create Account & Generate Friend Code'
                   : tab === 'login'
                     ? 'Sign In'
-                    : 'Send Password Reset'}
+                    : 'Reset Password & Sign In'}
             </Button>
+            {tab === 'reset' && (
+              <Button
+                variant="ghost"
+                type="button"
+                disabled={busy}
+                onClick={() => void handleSendResetEmail()}
+              >
+                Send Recovery Email
+              </Button>
+            )}
             <Button variant="ghost" type="button" onClick={() => navigate({ name: 'settings' })}>
               Backend Settings
             </Button>

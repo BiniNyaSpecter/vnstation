@@ -70,6 +70,23 @@ describe('Milestone 7 — Social Accounts, Friend Codes, Custom Profiles & Autho
     expect(rawRow?.value ?? '').not.toContain('Password123!')
     const decoded = Buffer.from((rawRow?.value ?? '').replace(/^enc:/, ''), 'base64').toString('utf8')
     expect(decoded).not.toContain('Password123!')
+
+    // Direct in-app password reset works without requiring localhost:3000 browser redirect
+    await service.logout()
+    await expect(
+      service.resetPassword({
+        email: 'alice@example.com',
+        newPassword: 'NewPassword456!',
+        verification: 'wrong_username'
+      })
+    ).rejects.toThrow(/did not match/i)
+
+    const afterReset = await service.resetPassword({
+      email: 'alice@example.com',
+      newPassword: 'NewPassword456!',
+      verification: 'alice_vn'
+    })
+    expect(afterReset.user?.email).toBe('alice@example.com')
   })
 
   it('2. enforces username and Friend Code uniqueness across accounts', async () => {

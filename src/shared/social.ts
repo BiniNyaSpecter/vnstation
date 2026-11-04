@@ -327,6 +327,13 @@ export interface LoginAccountInput {
   password: string
 }
 
+export interface ResetPasswordInput {
+  email: string
+  newPassword: string
+  verification?: string
+  recoveryAccessToken?: string
+}
+
 export interface ProfilePatchInput {
   displayName?: string
   bio?: string
@@ -402,6 +409,7 @@ export interface SocialApi {
   login(input: LoginAccountInput): Promise<SocialSessionState>
   logout(): Promise<SocialSessionState>
   requestPasswordReset(email: string): Promise<{ message: string }>
+  resetPassword(input: ResetPasswordInput): Promise<SocialSessionState>
   deleteAccount(): Promise<SocialSessionState>
   updateProfile(patch: ProfilePatchInput): Promise<UserProfile>
   getProfileView(targetUserId: string, viewAs?: 'self' | 'friend' | 'stranger'): Promise<PublicProfileView>

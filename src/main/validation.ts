@@ -6,6 +6,7 @@ import type {
   ProfilePatchInput,
   RegisterAccountInput,
   ReportAbuseInput,
+  ResetPasswordInput,
   SendMessageInput,
   SupabaseConfigInput
 } from '@shared/social'
@@ -248,6 +249,22 @@ export function parseLoginInput(value: unknown): LoginAccountInput {
 
 export function parseEmailInput(value: unknown): string {
   return text(value, LIMITS.short, 'email')
+}
+
+export function parseResetPasswordInput(value: unknown): ResetPasswordInput {
+  if (!isRecord(value)) return invalid('password reset')
+  return {
+    email: text(value.email, LIMITS.short, 'email'),
+    newPassword: text(value.newPassword, LIMITS.short, 'password'),
+    verification:
+      value.verification !== undefined && value.verification !== null
+        ? text(value.verification, LIMITS.url, 'verification')
+        : undefined,
+    recoveryAccessToken:
+      value.recoveryAccessToken !== undefined && value.recoveryAccessToken !== null
+        ? text(value.recoveryAccessToken, LIMITS.url, 'recovery token')
+        : undefined
+  }
 }
 
 export function parseProfilePatch(value: unknown): ProfilePatchInput {

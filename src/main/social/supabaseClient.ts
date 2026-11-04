@@ -157,16 +157,36 @@ export class SupabaseRestClient {
     return session
   }
 
-  async recoverPassword(email: string): Promise<void> {
-    const res = await this.fetcher(`${this.baseUrl}/auth/v1/recover`, {
-      method: 'POST',
-      headers: this.headers(),
-      body: JSON.stringify({ email })
-    })
+  async recoverPassword(email: string, redirectTo = 'http://localhost:3000/'): Promise<void> {
+    const res = await this.fetcher(
+      `${this.baseUrl}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`,
+      {
+        method: 'POST',
+        headers: this.headers(),
+        body: JSON.stringify({ email, redirect_to: redirectTo })
+      }
+    )
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
       throw new Error(
         (data.msg as string) || (data.message as string) || 'Could not send password reset email.'
+      )
+    }
+  }
+
+  async updateUserPassword(accessToken: string, newPassword: string): Promise<void> {
+    const res = await this.fetcher(`${this.baseUrl}/auth/v1/user`, {
+      method: 'PUT',
+      headers: this.headers(accessToken),
+      body: JSON.stringify({ password: newPassword })
+    })
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
+      throw new Error(
+        (data.msg as string) ||
+          (data.error_description as string) ||
+          (data.message as string) ||
+          'Could not update password.'
       )
     }
   }

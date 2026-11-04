@@ -25,6 +25,7 @@ import {
   parseRefreshOptions,
   parseRegisterInput,
   parseReportAbuseInput,
+  parseResetPasswordInput,
   parseSearchOptions,
   parseSendMessageInput,
   parseSteamAppId,
@@ -190,6 +191,7 @@ export function registerIpcHandlers({ isTrustedUrl, library, settings, metadata,
     handle(IPC.social.login, (_e, input: never) => social.login(parseLoginInput(input)))
     handle(IPC.social.logout, () => social.logout())
     handle(IPC.social.requestPasswordReset, (_e, email: never) => social.requestPasswordReset(parseEmailInput(email)))
+    handle(IPC.social.resetPassword, (_e, input: never) => social.resetPassword(parseResetPasswordInput(input)))
     handle(IPC.social.deleteAccount, () => social.deleteAccount())
     handle(IPC.social.updateProfile, (_e, patch: never) => social.updateProfile(parseProfilePatch(patch)))
     handle(IPC.social.getProfileView, (_e, targetId: never, viewAs: never) =>

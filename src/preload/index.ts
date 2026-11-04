@@ -67,6 +67,7 @@ const api: VNStationApi = {
     login: (input) => call(IPC.social.login, input),
     logout: () => call(IPC.social.logout),
     requestPasswordReset: (email) => call(IPC.social.requestPasswordReset, email),
+    resetPassword: (input) => call(IPC.social.resetPassword, input),
     deleteAccount: () => call(IPC.social.deleteAccount),
     updateProfile: (patch) => call(IPC.social.updateProfile, patch),
     getProfileView: (targetUserId, viewAs) => call(IPC.social.getProfileView, targetUserId, viewAs),

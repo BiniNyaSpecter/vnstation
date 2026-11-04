@@ -33,6 +33,7 @@ import {
   type PublicProfileView,
   type RegisterAccountInput,
   type ReportAbuseInput,
+  type ResetPasswordInput,
   type SendMessageInput,
   type SocialApi,
   type SocialBackendInfo,
@@ -1612,11 +1613,107 @@ export class SocialService implements SocialApi {
     const backendCfg = this.getBackendConfig()
     if (backendCfg.enabled && backendCfg.url && backendCfg.anonKey) {
       const client = new SupabaseRestClient(backendCfg.url, backendCfg.anonKey, this.fetcher)
-      await client.recoverPassword(cleanEmail)
+      await client.recoverPassword(cleanEmail, 'http://localhost:3000/')
     }
     return {
       message: `If an account exists for ${cleanEmail}, password reset instructions have been sent.`
     }
+  }
+
+  async resetPassword(input: ResetPasswordInput): Promise<SocialSessionState> {
+    const cleanEmail = sanitizeUserText(input.email, 160).toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      throw new Error('Please enter a valid email address.')
+    }
+    const newPassword = input.newPassword ?? ''
+    if (newPassword.length < 8 || newPassword.length > 128) {
+      throw new Error('Password must be between 8 and 128 characters.')
+    }
+
+    let extractedToken = (input.recoveryAccessToken ?? '').trim()
+    const rawVerify = (input.verification ?? '').trim()
+    let cleanVerification = sanitizeUserText(rawVerify, 120)
+    if (rawVerify.includes('access_token=')) {
+      const match = /access_token=([^&\s#]+)/.exec(rawVerify)
+      if (match?.[1]) {
+        extractedToken = decodeURIComponent(match[1])
+        cleanVerification = ''
+      }
+    }
+
+    const backendCfg = this.getBackendConfig()
+    const registry = this.readEncryptedSetting<Record<string, LocalAuthEntry>>(KEY_LOCAL_AUTH) ?? {}
+
+    if (backendCfg.enabled && backendCfg.url && backendCfg.anonKey) {
+      const client = new SupabaseRestClient(backendCfg.url, backendCfg.anonKey, this.fetcher)
+      let resetSucceeded = false
+      let lastError: Error | null = null
+
+      if (extractedToken) {
+        try {
+          await client.updateUserPassword(extractedToken, newPassword)
+          resetSucceeded = true
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error('Recovery token expired or invalid.')
+        }
+      }
+
+      if (!resetSucceeded) {
+        try {
+          const rpcRes = await client.rpc<Record<string, unknown>>('reset_account_password', {
+            p_email: cleanEmail,
+            p_new_password: newPassword,
+            p_verification: cleanVerification || null
+          })
+          if (rpcRes && typeof rpcRes === 'object' && !Array.isArray(rpcRes) && rpcRes.ok === true) {
+            resetSucceeded = true
+          }
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error('Could not reset password.')
+        }
+      }
+
+      if (!resetSucceeded && lastError) {
+        throw lastError
+      }
+
+      if (registry[cleanEmail]) {
+        const { saltHex, verifierHex } = hashPasswordVerifier(newPassword)
+        registry[cleanEmail] = {
+          ...registry[cleanEmail],
+          saltHex,
+          verifierHex
+        }
+        this.writeEncryptedSetting(KEY_LOCAL_AUTH, registry)
+      }
+
+      return this.login({ email: cleanEmail, password: newPassword })
+    }
+
+    const entry = registry[cleanEmail]
+    if (!entry) {
+      throw new Error(`No account found for ${cleanEmail}.`)
+    }
+    if (cleanVerification) {
+      const localProfile = this.loadProfileById(entry.userId)
+      if (
+        localProfile &&
+        localProfile.username.toLowerCase() !== cleanVerification.toLowerCase() &&
+        localProfile.friendCode.toUpperCase() !== normalizeFriendCode(cleanVerification) &&
+        localProfile.displayName.toLowerCase() !== cleanVerification.toLowerCase()
+      ) {
+        throw new Error('The username or Friend Code did not match that email account.')
+      }
+    }
+
+    const { saltHex, verifierHex } = hashPasswordVerifier(newPassword)
+    registry[cleanEmail] = {
+      ...entry,
+      saltHex,
+      verifierHex
+    }
+    this.writeEncryptedSetting(KEY_LOCAL_AUTH, registry)
+    return this.login({ email: cleanEmail, password: newPassword })
   }
 
   async deleteAccount(): Promise<SocialSessionState> {
