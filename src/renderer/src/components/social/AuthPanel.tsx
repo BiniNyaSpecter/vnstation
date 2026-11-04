@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { AVATAR_PRESETS, type AvatarPresetId } from '@shared/social'
-import { Avatar } from '@renderer/components/social/Avatar'
+import { type AvatarPresetId } from '@shared/social'
 import { Badge } from '@renderer/components/ui/Badge'
 import { Button } from '@renderer/components/ui/Button'
 import { Icon } from '@renderer/components/ui/Icon'
@@ -9,10 +8,6 @@ import { services } from '@renderer/services'
 import { useAppStore } from '@renderer/state/appStore'
 
 type AuthTab = 'login' | 'register' | 'reset'
-
-const PRESET_ENTRIES = Object.entries(AVATAR_PRESETS) as Array<
-  [AvatarPresetId, { label: string; gradient: string; monogram: string }]
->
 
 export function AuthPanel({ subtitle }: { subtitle?: string }) {
   const social = useAppStore((state) => state.social)
@@ -25,7 +20,7 @@ export function AuthPanel({ subtitle }: { subtitle?: string }) {
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
-  const [avatarPreset, setAvatarPreset] = useState<AvatarPresetId>('aoko')
+  const [avatarPreset] = useState<AvatarPresetId>('aoko')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -192,28 +187,6 @@ export function AuthPanel({ subtitle }: { subtitle?: string }) {
                   />
                   <span className="field__hint">Shown on your profile & messages</span>
                 </label>
-              </div>
-
-              <div className="field">
-                <span className="field__label">Choose starter avatar emblem</span>
-                <div className="social-auth__presets">
-                  {PRESET_ENTRIES.map(([id, preset]) => (
-                    <button
-                      key={id}
-                      type="button"
-                      className={cx('social-auth__preset', avatarPreset === id && 'is-selected')}
-                      data-nav=""
-                      onClick={() => setAvatarPreset(id)}
-                    >
-                      <Avatar
-                        displayName={displayName || username || preset.label}
-                        preset={id}
-                        size="sm"
-                      />
-                      <span>{preset.label}</span>
-                    </button>
-                  ))}
-                </div>
               </div>
             </>
           )}

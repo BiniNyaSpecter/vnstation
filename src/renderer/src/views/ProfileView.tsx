@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
 import {
-  AVATAR_PRESETS,
   PROFILE_THEMES,
   sanitizeSafeImageUrl,
   type AvatarPresetId,
@@ -25,11 +24,6 @@ import { Switch } from '@renderer/components/ui/Switch'
 import { cx } from '@renderer/lib/cx'
 import { services } from '@renderer/services'
 import { useAppStore } from '@renderer/state/appStore'
-
-const THEME_ENTRIES = Object.values(PROFILE_THEMES)
-const PRESET_ENTRIES = Object.entries(AVATAR_PRESETS) as Array<
-  [AvatarPresetId, { label: string; gradient: string; monogram: string }]
->
 
 const LAYOUT_OPTIONS: Array<{ value: ProfileLayoutId; label: string }> = [
   { value: 'myspace-classic', label: 'MySpace Classic (2-Column)' },
@@ -438,30 +432,9 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                 </label>
               </div>
 
-              {/* Column 2: MySpace-Inspired Theme & Visuals */}
+              {/* Column 2: Layout & Artwork */}
               <div className="social-editor__card">
-                <h3 className="social-editor__section-title">Theme, Layout & Artwork</h3>
-                <div className="field">
-                  <span className="field__label">Profile Theme Preset</span>
-                  <div className="social-theme-grid">
-                    {THEME_ENTRIES.map((preset) => (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        data-nav=""
-                        className={cx('social-theme-card', theme === preset.id && 'is-selected')}
-                        style={{ background: preset.bannerGradient }}
-                        onClick={() => {
-                          setTheme(preset.id)
-                          setAccentColor(preset.defaultAccent)
-                        }}
-                      >
-                        <span className="social-theme-card__name">{preset.label}</span>
-                        <span className="social-theme-card__desc">{preset.tagline}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <h3 className="social-editor__section-title">Layout & Artwork</h3>
 
                 <div className="social-auth__row">
                   <div className="field">
@@ -482,24 +455,6 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                       onChange={(e) => setAccentColor(e.target.value)}
                     />
                   </label>
-                </div>
-
-                <div className="field">
-                  <span className="field__label">Avatar Emblem Preset</span>
-                  <div className="social-auth__presets">
-                    {PRESET_ENTRIES.map(([id, preset]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        data-nav=""
-                        className={cx('social-auth__preset', avatarPreset === id && 'is-selected')}
-                        onClick={() => setAvatarPreset(id)}
-                      >
-                        <Avatar displayName={displayName} preset={id} size="sm" />
-                        <span>{preset.label}</span>
-                      </button>
-                    ))}
-                  </div>
                 </div>
 
                 <div className="social-upload-group">
@@ -822,7 +777,6 @@ export function ProfileView({ userId }: { userId?: string | null }) {
                 <div className="myspace-banner__name-row">
                   <h1 className="myspace-banner__name">{profileView.displayName}</h1>
                   <span className="myspace-banner__handle">@{profileView.username}</span>
-                  <Badge tone="accent">{themeDef.label}</Badge>
                 </div>
                 {profileView.customization.statusLine && (
                   <p className="myspace-banner__headline">“{profileView.customization.statusLine}”</p>
